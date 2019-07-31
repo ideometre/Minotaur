@@ -1,6 +1,6 @@
-# [Minautor](https://maxime-hanicotte.github.io/Minautor/)
+# [Minotaur](https://maxime-hanicotte.github.io/Minautor/)
 
-<img src="./img/sch.png" alt="arduboy_schema">
+<img src="./img/minotaur.jpg" alt="minotaur">
 
 ## Les élements du jeu
 * Un Minotaure
