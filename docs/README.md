@@ -1,4 +1,4 @@
-# [Minotaur](https://maxime-hanicotte.github.io/Minautor/)
+# [Minotaur](https://maxime.hanicotte.net/Minotaur/)
 
 <img src="./img/minotaur.jpg" alt="minotaur">
 
