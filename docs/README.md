@@ -21,6 +21,6 @@
 * Si on s’approche du bord de la carte on est transporté à l’opposé
 * Enregistrer les records de temps par catégories
 
-<a href="https://maxime-hanicotte.github.io"><img src="./img/mx-logo.png" width="36" alt="MX" align="right"></a>
+<a href="https://www.maxime.hanicotte.net"><img src="./img/mx-logo.png" width="36" alt="MX" align="right"></a>
 
 --
