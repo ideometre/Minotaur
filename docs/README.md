@@ -1,5 +1,4 @@
-# Minotaur
-
+# [Minotaur](https://maxime-hanicotte.github.io/Minotaur/)
 <img src="./img/minotaur.jpg" alt="minotaur">
 
 ## Les élements du jeu
