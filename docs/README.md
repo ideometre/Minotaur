@@ -2,8 +2,6 @@
 
 ## Les élements du jeu
 
-<img src="./img/arduboyplay.png">
-
 * Un Minotaure <img src="./img/min_front.png"> <img src="./img/min_right.png"> <img src="./img/min_back.png"> <img src="./img/min_left.png">
 * Un Thésée <img src="./img/the_front.png"> <img src="./img/the_right.png"> <img src="./img/the_back.png"> <img src="./img/the_left.png">
 * Une épée <img src="./img/sword.png">
@@ -21,6 +19,10 @@
 * Lorsqu’on fini une image apparaît avec Thesee tuant le Minotaure
 * Si on s’approche du bord de la carte on est transporté à l’opposé
 * Enregistrer les records de temps par catégories
+
+
+<img src="./img/arduboyplay.png">
+
 
 <a href="https://www.maxime.hanicotte.net"><img src="./img/mx-logo.png" width="36" alt="MX" align="right"></a>
 
