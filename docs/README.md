@@ -7,15 +7,15 @@
 * Une épée <img src="./img/sword.png">
 * Une pelote <img src="./img/string.png">
 * Une clé <img src="./img/key.png">
-* Des points de départ
-* Une porte de sortie
+* Des points de départ <img src="./img/input.png">
+* Une porte de sortie <img src="./img/output.png">
 * Génération aléatoire du labyrinthe (miroir + puzzle)
 * Déplacement aléatoire du Minotaure
 * Lorsqu’on allume un résumé du mythe défile (peut être passé)
 * On choisi la taille du labyrinthe petit 2x2 normal 3x3 grand 4x4
 * Activer son
 * Activer led (aide radar bleu épée, vert ariane, rouge clef, minotaure??)
-* Choix d’un thème (skins du terrain) <img src="./img/wall_cross.png"> <img src="./img/wall_straight.png"> <img src="./img/wall_angle.png"> <img src="./img/wall_end.png"> <img src="./img/wall_empty.png">
+* Choix d’un thème (skins du terrain) <img src="./img/wall_cross.png"> <img src="./img/wall_straight.png"> <img src="./img/wall_t.png"> <img src="./img/wall_dot.png"> <img src="./img/wall_angle.png"> <img src="./img/wall_end.png"> <img src="./img/wall_empty.png">
 * Lorsqu’on fini une image apparaît avec Thesee tuant le Minotaure
 * Si on s’approche du bord de la carte on est transporté à l’opposé
 * Enregistrer les records de temps par catégories
