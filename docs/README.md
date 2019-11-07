@@ -1,4 +1,4 @@
-# [Minotaur](https://maxime-hanicotte.github.io/Minotaur/)
+# "Revivez le mythe sur Arduboy"
 
 ## Les élements du jeu
 * Un Minotaure
