@@ -2,9 +2,7 @@
 
 ## Les élements du jeu
 
-
-<img src="./img/caption.png">
-
+<img src="./img/arduboyplay.png">
 
 * Un Minotaure <img src="./img/min_front.png"> <img src="./img/min_right.png"> <img src="./img/min_back.png"> <img src="./img/min_left.png">
 * Un Thésée <img src="./img/the_front.png"> <img src="./img/the_right.png"> <img src="./img/the_back.png"> <img src="./img/the_left.png">
