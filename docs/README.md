@@ -19,7 +19,7 @@
 * On choisi la taille du labyrinthe petit 2x2 normal 3x3 grand 4x4
 * Activer son
 * Activer led (aide radar bleu épée, vert ariane, rouge clef, minotaure??)
-* Choix d’un thème (skins du terrain) <img src="./img/wall_straight.png"> <img src="./img/wall_angle.png"> <img src="./img/wall_end.png"> <img src="./img/wall_empty.png">
+* Choix d’un thème (skins du terrain) <img src="./img/wall_cross.png"> <img src="./img/wall_straight.png"> <img src="./img/wall_angle.png"> <img src="./img/wall_end.png"> <img src="./img/wall_empty.png">
 * Lorsqu’on fini une image apparaît avec Thesee tuant le Minotaure
 * Si on s’approche du bord de la carte on est transporté à l’opposé
 * Enregistrer les records de temps par catégories
