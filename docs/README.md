@@ -24,6 +24,6 @@
 <img src="./img/arduboyplay.png">
 
 
-<a href="https://www.maxime.hanicotte.net"><img src="./img/mx-logo.png" width="36" alt="MX" align="right"></a>
+<a href="https://maxime.hanicotte.net"><img src="./img/mx-logo.png" width="36" alt="MX" align="right"></a>
 
 --
