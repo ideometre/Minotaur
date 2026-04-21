@@ -25,9 +25,29 @@ struct LevelConfig {
   int spawnY;
 };
 
+enum class ItemType {
+  Sword,
+  String,
+  Key
+};
+
+struct WorldItem {
+  ItemType type;
+  int x;
+  int y;
+  bool collected;
+};
+
+struct InventoryState {
+  bool hasSword;
+  bool hasString;
+  bool hasKey;
+};
+
 // Global game state
 GameMode current_mode = GameMode::Menu;
 PlayerState player = {true, false};
+InventoryState inventory = {false, false, false};
 
 // Game variables
 int playerx = 16;
@@ -42,6 +62,11 @@ const LevelConfig levels[LEVEL_COUNT] = {
   {8, 120, 8, 56, 56, 24}
 };
 uint8_t current_level = 0;
+WorldItem levelItems[3] = {
+  {ItemType::Sword, 32, 16, false},
+  {ItemType::String, 64, 16, false},
+  {ItemType::Key, 80, 32, false}
+};
 
 // Collision boundaries (playable area)
 constexpr int PLAYER_WIDTH = 16;
@@ -68,6 +93,64 @@ bool canMoveTo(int x, int y) {
          y + PLAYER_HEIGHT <= level.bottom;
 }
 
+bool rectanglesOverlap(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2) {
+  return x1 < x2 + w2 &&
+         x1 + w1 > x2 &&
+         y1 < y2 + h2 &&
+         y1 + h1 > y2;
+}
+
+const uint8_t* spriteForItem(ItemType type) {
+  if (type == ItemType::Sword) return sword;
+  if (type == ItemType::String) return string;
+  return key;
+}
+
+void setInventoryItem(ItemType type, bool value) {
+  if (type == ItemType::Sword) inventory.hasSword = value;
+  else if (type == ItemType::String) inventory.hasString = value;
+  else inventory.hasKey = value;
+}
+
+void resetLevelItems() {
+  if (current_level == 0) {
+    levelItems[0] = {ItemType::Sword, 32, 16, false};
+    levelItems[1] = {ItemType::String, 64, 16, false};
+    levelItems[2] = {ItemType::Key, 80, 32, false};
+  }
+  else if (current_level == 1) {
+    levelItems[0] = {ItemType::Sword, 80, 16, false};
+    levelItems[1] = {ItemType::String, 32, 32, false};
+    levelItems[2] = {ItemType::Key, 48, 16, false};
+  }
+  else {
+    levelItems[0] = {ItemType::Sword, 16, 32, false};
+    levelItems[1] = {ItemType::String, 64, 32, false};
+    levelItems[2] = {ItemType::Key, 96, 16, false};
+  }
+}
+
+void collectItemsAtPlayerPosition() {
+  for (uint8_t i = 0; i < 3; ++i) {
+    if (levelItems[i].collected) {
+      continue;
+    }
+    if (rectanglesOverlap(playerx, playery, PLAYER_WIDTH, PLAYER_HEIGHT,
+                          levelItems[i].x, levelItems[i].y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
+      levelItems[i].collected = true;
+      setInventoryItem(levelItems[i].type, true);
+    }
+  }
+}
+
+void drawLevelItems() {
+  for (uint8_t i = 0; i < 3; ++i) {
+    if (!levelItems[i].collected) {
+      Sprites::drawOverwrite(levelItems[i].x, levelItems[i].y, spriteForItem(levelItems[i].type), 0);
+    }
+  }
+}
+
 void restrictPlayerPosition() {
   const LevelConfig& level = levels[current_level];
   if (playerx < level.left) playerx = level.left;
@@ -82,6 +165,8 @@ void startLevel(uint8_t levelIndex) {
   playery = levels[current_level].spawnY;
   player.is_minos = true;
   player.is_armed = false;
+  inventory = {false, false, false};
+  resetLevelItems();
   restrictPlayerPosition();
 }
 
@@ -162,12 +247,15 @@ void handleGameplay() {
   Sprites::drawOverwrite(96, 0, dot, 0);
 
   // Draw bottom UI row
-  Sprites::drawOverwrite(16, 48, sword, 0);
-  Sprites::drawOverwrite(32, 48, string, 0);
-  Sprites::drawOverwrite(48, 48, key, 0);
+  Sprites::drawOverwrite(16, 48, inventory.hasSword ? sword : dot, 0);
+  Sprites::drawOverwrite(32, 48, inventory.hasString ? string : dot, 0);
+  Sprites::drawOverwrite(48, 48, inventory.hasKey ? key : dot, 0);
   Sprites::drawOverwrite(64, 48, dot, 0);
   Sprites::drawOverwrite(80, 48, dot, 0);
   Sprites::drawOverwrite(96, 48, input, 0);
+
+  drawLevelItems();
+  collectItemsAtPlayerPosition();
 
   arduboy.setCursor(2, 56);
   arduboy.print("L");
