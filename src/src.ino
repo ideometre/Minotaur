@@ -16,6 +16,15 @@ struct PlayerState {
   bool is_armed;
 };
 
+struct LevelConfig {
+  int left;
+  int right;
+  int top;
+  int bottom;
+  int spawnX;
+  int spawnY;
+};
+
 // Global game state
 GameMode current_mode = GameMode::Menu;
 PlayerState player = {true, false};
@@ -26,11 +35,15 @@ int playery = 16;
 int select_pos = 28;
 int splash = 6;
 
+constexpr uint8_t LEVEL_COUNT = 3;
+const LevelConfig levels[LEVEL_COUNT] = {
+  {0, 128, 0, 64, 16, 16},
+  {16, 112, 16, 48, 24, 24},
+  {8, 120, 8, 56, 56, 24}
+};
+uint8_t current_level = 0;
+
 // Collision boundaries (playable area)
-constexpr int COLLISION_LEFT = 0;
-constexpr int COLLISION_RIGHT = 128;
-constexpr int COLLISION_TOP = 0;
-constexpr int COLLISION_BOTTOM = 64;
 constexpr int PLAYER_WIDTH = 16;
 constexpr int PLAYER_HEIGHT = 16;
 
@@ -48,17 +61,28 @@ const uint8_t* const splashScreens[SPLASH_COUNT] = {
 
 // Collision detection functions
 bool canMoveTo(int x, int y) {
-  return x >= COLLISION_LEFT && 
-         x + PLAYER_WIDTH <= COLLISION_RIGHT && 
-         y >= COLLISION_TOP && 
-         y + PLAYER_HEIGHT <= COLLISION_BOTTOM;
+  const LevelConfig& level = levels[current_level];
+  return x >= level.left &&
+         x + PLAYER_WIDTH <= level.right &&
+         y >= level.top &&
+         y + PLAYER_HEIGHT <= level.bottom;
 }
 
 void restrictPlayerPosition() {
-  if (playerx < COLLISION_LEFT) playerx = COLLISION_LEFT;
-  if (playerx + PLAYER_WIDTH > COLLISION_RIGHT) playerx = COLLISION_RIGHT - PLAYER_WIDTH;
-  if (playery < COLLISION_TOP) playery = COLLISION_TOP;
-  if (playery + PLAYER_HEIGHT > COLLISION_BOTTOM) playery = COLLISION_BOTTOM - PLAYER_HEIGHT;
+  const LevelConfig& level = levels[current_level];
+  if (playerx < level.left) playerx = level.left;
+  if (playerx + PLAYER_WIDTH > level.right) playerx = level.right - PLAYER_WIDTH;
+  if (playery < level.top) playery = level.top;
+  if (playery + PLAYER_HEIGHT > level.bottom) playery = level.bottom - PLAYER_HEIGHT;
+}
+
+void startLevel(uint8_t levelIndex) {
+  current_level = levelIndex % LEVEL_COUNT;
+  playerx = levels[current_level].spawnX;
+  playery = levels[current_level].spawnY;
+  player.is_minos = true;
+  player.is_armed = false;
+  restrictPlayerPosition();
 }
 
 void setup() {
@@ -96,10 +120,18 @@ void handleSplashScreen() {
 }
 
 void handleGameplay() {
+  const uint8_t* backgroundTile = empty;
+  if (current_level == 1) {
+    backgroundTile = straight;
+  }
+  else if (current_level == 2) {
+    backgroundTile = dot;
+  }
+
   // Draw background
   for (int backgroundx = 16; backgroundx < 112; backgroundx = backgroundx + 16) {
     for (int backgroundy = 16; backgroundy < 48; backgroundy = backgroundy + 16) {
-      Sprites::drawOverwrite(backgroundx, backgroundy, empty, 0);
+      Sprites::drawOverwrite(backgroundx, backgroundy, backgroundTile, 0);
     }
   }
 
@@ -136,6 +168,10 @@ void handleGameplay() {
   Sprites::drawOverwrite(64, 48, dot, 0);
   Sprites::drawOverwrite(80, 48, dot, 0);
   Sprites::drawOverwrite(96, 48, input, 0);
+
+  arduboy.setCursor(2, 56);
+  arduboy.print("L");
+  arduboy.print(current_level + 1);
 
   // Handle player movement with collision detection
   if (arduboy.pressed(LEFT_BUTTON)) {
@@ -184,6 +220,8 @@ void handleMenu() {
     }
   }
   else if (arduboy.justPressed(A_BUTTON)) {
+    uint8_t selectedLevel = (select_pos - 28) / 8;
+    startLevel(selectedLevel);
     current_mode = GameMode::Game;
   }
   else if (arduboy.justPressed(B_BUTTON)) {
@@ -192,6 +230,9 @@ void handleMenu() {
 
   Sprites::drawOverwrite(0, 0, qrcode, 0);
   Sprites::drawOverwrite(48, select_pos, select, 0);
+  arduboy.setCursor(66, 56);
+  arduboy.print("N");
+  arduboy.print((select_pos - 28) / 8 + 1);
   arduboy.display();
 }
 
