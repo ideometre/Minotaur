@@ -26,6 +26,15 @@ int playery = 16;
 int select_pos = 28;
 int splash = 6;
 
+// Collision boundaries (playable area)
+constexpr int COLLISION_LEFT = 0;
+constexpr int COLLISION_RIGHT = 128;
+constexpr int COLLISION_TOP = 0;
+constexpr int COLLISION_BOTTOM = 64;
+constexpr int PLAYER_WIDTH = 16;
+constexpr int PLAYER_HEIGHT = 16;
+
+// Splash screen configuration
 constexpr uint8_t SPLASH_COUNT = 7;
 const uint8_t* const splashScreens[SPLASH_COUNT] = {
   mx_0,
@@ -36,6 +45,21 @@ const uint8_t* const splashScreens[SPLASH_COUNT] = {
   mx_5,
   mx_6
 };
+
+// Collision detection functions
+bool canMoveTo(int x, int y) {
+  return x >= COLLISION_LEFT && 
+         x + PLAYER_WIDTH <= COLLISION_RIGHT && 
+         y >= COLLISION_TOP && 
+         y + PLAYER_HEIGHT <= COLLISION_BOTTOM;
+}
+
+void restrictPlayerPosition() {
+  if (playerx < COLLISION_LEFT) playerx = COLLISION_LEFT;
+  if (playerx + PLAYER_WIDTH > COLLISION_RIGHT) playerx = COLLISION_RIGHT - PLAYER_WIDTH;
+  if (playery < COLLISION_TOP) playery = COLLISION_TOP;
+  if (playery + PLAYER_HEIGHT > COLLISION_BOTTOM) playery = COLLISION_BOTTOM - PLAYER_HEIGHT;
+}
 
 void setup() {
   arduboy.begin();
@@ -113,30 +137,38 @@ void handleGameplay() {
   Sprites::drawOverwrite(80, 48, dot, 0);
   Sprites::drawOverwrite(96, 48, input, 0);
 
-  // Handle player movement
+  // Handle player movement with collision detection
   if (arduboy.pressed(LEFT_BUTTON)) {
-    if (playerx <= -16) playerx = 128 + 16;
-    else playerx = playerx - 1;
-    drawPlayerSprite();
-    arduboy.display();
+    int newX = playerx - 1;
+    if (canMoveTo(newX, playery)) {
+      playerx = newX;
+      drawPlayerSprite();
+      arduboy.display();
+    }
   }
   if (arduboy.pressed(RIGHT_BUTTON)) {
-    if (playerx >= 128) playerx = -16;
-    else playerx = playerx + 1;
-    drawPlayerSprite();
-    arduboy.display();
+    int newX = playerx + 1;
+    if (canMoveTo(newX, playery)) {
+      playerx = newX;
+      drawPlayerSprite();
+      arduboy.display();
+    }
   }
   if (arduboy.pressed(UP_BUTTON)) {
-    if (playery <= -16) playery = 64 + 16;
-    else playery = playery - 1;
-    drawPlayerSprite();
-    arduboy.display();
+    int newY = playery - 1;
+    if (canMoveTo(playerx, newY)) {
+      playery = newY;
+      drawPlayerSprite();
+      arduboy.display();
+    }
   }
   if (arduboy.pressed(DOWN_BUTTON)) {
-    if (playery >= 64) playery = -16;
-    else playery = playery + 1;
-    drawPlayerSprite();
-    arduboy.display();
+    int newY = playery + 1;
+    if (canMoveTo(playerx, newY)) {
+      playery = newY;
+      drawPlayerSprite();
+      arduboy.display();
+    }
   }
 }
 
