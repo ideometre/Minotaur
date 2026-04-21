@@ -131,6 +131,11 @@ void resetLevelItems() {
 }
 
 void collectItemsAtPlayerPosition() {
+  // In minotaur form, items are ignored and can be crossed without pickup.
+  if (!player.is_minos) {
+    return;
+  }
+
   for (uint8_t i = 0; i < 3; ++i) {
     if (levelItems[i].collected) {
       continue;
@@ -139,6 +144,9 @@ void collectItemsAtPlayerPosition() {
                           levelItems[i].x, levelItems[i].y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
       levelItems[i].collected = true;
       setInventoryItem(levelItems[i].type, true);
+      if (levelItems[i].type == ItemType::Sword) {
+        player.is_armed = true;
+      }
     }
   }
 }
@@ -205,6 +213,12 @@ void handleSplashScreen() {
 }
 
 void handleGameplay() {
+  // Return to menu if A + B pressed simultaneously
+  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON)) {
+    current_mode = GameMode::Menu;
+    return;
+  }
+
   const uint8_t* backgroundTile = empty;
   if (current_level == 1) {
     backgroundTile = straight;
@@ -221,7 +235,7 @@ void handleGameplay() {
   }
 
   // Handle button inputs for player state
-  if (arduboy.justPressed(A_BUTTON)) {
+  if (arduboy.justPressed(A_BUTTON) && inventory.hasSword) {
     player.is_armed = !player.is_armed;
   }
   else if (arduboy.justPressed(B_BUTTON)) {
@@ -246,10 +260,22 @@ void handleGameplay() {
   Sprites::drawOverwrite(80, 0, dot, 0);
   Sprites::drawOverwrite(96, 0, dot, 0);
 
-  // Draw bottom UI row
-  Sprites::drawOverwrite(16, 48, inventory.hasSword ? sword : dot, 0);
-  Sprites::drawOverwrite(32, 48, inventory.hasString ? string : dot, 0);
-  Sprites::drawOverwrite(48, 48, inventory.hasKey ? key : dot, 0);
+  Sprites::drawOverwrite(16, 48, dot, 0);
+  Sprites::drawOverwrite(32, 48, dot, 0);
+  Sprites::drawOverwrite(48, 48, dot, 0);
+  // Draw bottom UI row with text labels
+  if (inventory.hasSword) {
+    arduboy.setCursor(16, 56);
+    arduboy.print("S");
+  }
+  if (inventory.hasString) {
+    arduboy.setCursor(32, 56);
+    arduboy.print("Y");
+  }
+  if (inventory.hasKey) {
+    arduboy.setCursor(48, 56);
+    arduboy.print("K");
+  }
   Sprites::drawOverwrite(64, 48, dot, 0);
   Sprites::drawOverwrite(80, 48, dot, 0);
   Sprites::drawOverwrite(96, 48, input, 0);
