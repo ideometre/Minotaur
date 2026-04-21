@@ -1,5 +1,9 @@
 # "Revivez le mythe sur Arduboy"
 
+## Reprise du dev sur VS Code
+
+Guide d'installation et workflow Linux/Arduboy: [DEV_SETUP.md](DEV_SETUP.md)
+
 ## Les élements du jeu
 
 * Un Minotaure <img src="./img/min_front.png"> <img src="./img/min_right.png"> <img src="./img/min_back.png"> <img src="./img/min_left.png">

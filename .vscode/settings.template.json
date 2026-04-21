@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.ino": "cpp"
+    },
+    "minotaur.arduinoCli": "arduino-cli",
+    "minotaur.arduinoCliWindows": "arduino-cli.exe",
+    "minotaur.sketchPath": "${workspaceFolder}/src",
+    "minotaur.fqbn": "arduino:avr:leonardo",
+    "minotaur.port": "/dev/ttyACM0",
+    "minotaur.portWindows": "COM7",
+    "minotaur.usbBusIdWindows": "2-1",
+    "minotaur.monitorBaudRate": "115200"
+}

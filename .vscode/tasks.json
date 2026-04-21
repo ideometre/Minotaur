@@ -1,0 +1,134 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Arduino: Detect Ports",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-lc",
+                "ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null || echo 'No serial device detected'"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Detect Ports (Windows)",
+            "type": "shell",
+            "command": "powershell.exe",
+            "args": [
+                "-NoProfile",
+                "-Command",
+                "& '${config:minotaur.arduinoCliWindows}' board list"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Setup Toolchain",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-lc",
+                "command -v ${config:minotaur.arduinoCli} >/dev/null || { echo 'arduino-cli is not installed'; exit 1; }; ${config:minotaur.arduinoCli} core update-index && ${config:minotaur.arduinoCli} core install arduino:avr && (${config:minotaur.arduinoCli} lib list | grep -q '^Arduboy2' || ${config:minotaur.arduinoCli} lib install Arduboy2)"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Build",
+            "type": "shell",
+            "command": "${config:minotaur.arduinoCli}",
+            "args": [
+                "compile",
+                "--fqbn",
+                "${config:minotaur.fqbn}",
+                "${config:minotaur.sketchPath}"
+            ],
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Upload",
+            "type": "shell",
+            "command": "${config:minotaur.arduinoCli}",
+            "args": [
+                "upload",
+                "-p",
+                "${config:minotaur.port}",
+                "--fqbn",
+                "${config:minotaur.fqbn}",
+                "${config:minotaur.sketchPath}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Build + Upload",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Arduino: Build",
+                "Arduino: Upload"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Upload (Windows COM)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-lc",
+                "SKETCH_WIN=$(wslpath -w \"$PWD/src\"); SKETCH_WIN=${SKETCH_WIN//\\\\//}; powershell.exe -NoProfile -Command \"\\$bus=\\\"${config:minotaur.usbBusIdWindows}\\\"; if (\\$bus) { usbipd detach --busid \\\"\\$bus\\\" | Out-Null }; & \\\"${config:minotaur.arduinoCliWindows}\\\" upload -p \\\"${config:minotaur.portWindows}\\\" --fqbn \\\"${config:minotaur.fqbn}\\\" \\\"$SKETCH_WIN\\\"\""
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Build (Windows)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-lc",
+                "SKETCH_WIN=$(wslpath -w \"$PWD/src\"); SKETCH_WIN=${SKETCH_WIN//\\\\//}; powershell.exe -NoProfile -Command \"& \\\"${config:minotaur.arduinoCliWindows}\\\" compile --fqbn \\\"${config:minotaur.fqbn}\\\" \\\"$SKETCH_WIN\\\"\""
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Build + Upload (Windows COM)",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Arduino: Build (Windows)",
+                "Arduino: Upload (Windows COM)"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Verify Port (Windows COM)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-lc",
+                "powershell.exe -NoProfile -Command \"\\$port=\\\"${config:minotaur.portWindows}\\\"; \\$out=& \\\"${config:minotaur.arduinoCliWindows}\\\" board list; \\$out | Out-Host; \\$pattern=\\\"(^|\\\\s)\\\" + [regex]::Escape(\\$port) + \\\"(\\\\s|$)\\\"; if (-not (\\$out -match \\$pattern)) { Write-Error \\\"Port \\$port not found. Check cable/board and minotaur.portWindows.\\\"; exit 1 }\""
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Flash Minotaur",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Arduino: Verify Port (Windows COM)",
+                "Arduino: Build + Upload (Windows COM)"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Arduino: Monitor",
+            "type": "shell",
+            "command": "${config:minotaur.arduinoCli}",
+            "args": [
+                "monitor",
+                "-p",
+                "${config:minotaur.port}",
+                "-c",
+                "baudrate=${config:minotaur.monitorBaudRate}"
+            ],
+            "isBackground": true,
+            "problemMatcher": []
+        }
+    ]
+}
