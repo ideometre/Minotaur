@@ -12,6 +12,17 @@ bool in_splash = false;
 int select_pos = 28;
 int splash = 6;
 
+constexpr uint8_t SPLASH_COUNT = 7;
+const uint8_t* const splashScreens[SPLASH_COUNT] = {
+  mx_0,
+  mx_1,
+  mx_2,
+  mx_3,
+  mx_4,
+  mx_5,
+  mx_6
+};
+
 void setup() {
   arduboy.begin();
   arduboy.setFrameRate(60);
@@ -27,16 +38,8 @@ void loop() {
 
   if (in_splash) {
     if (arduboy.justPressed(B_BUTTON)) {
-      if (splash >= 6) splash = 0;
-      else splash = splash + 1;
-
-      if (splash == 0) Sprites::drawOverwrite(0, 0, mx_0, 0);
-      else if (splash == 1) Sprites::drawOverwrite(0, 0, mx_1, 0);
-      else if (splash == 2) Sprites::drawOverwrite(0, 0, mx_2, 0);
-      else if (splash == 3) Sprites::drawOverwrite(0, 0, mx_3, 0);
-      else if (splash == 4) Sprites::drawOverwrite(0, 0, mx_4, 0);
-      else if (splash == 5) Sprites::drawOverwrite(0, 0, mx_5, 0);
-      else Sprites::drawOverwrite(0, 0, mx_6, 0);
+      splash = (splash + 1) % SPLASH_COUNT;
+      Sprites::drawOverwrite(0, 0, splashScreens[splash], 0);
 
       arduboy.display();
     }
