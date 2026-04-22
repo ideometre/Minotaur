@@ -318,8 +318,9 @@ void handleGameplay() {
   Sprites::drawOverwrite(80, 48, dot, 0);
   Sprites::drawOverwrite(96, 48, input, 0);
 
-  drawLevelItems();
+  // Collect items first, then draw so pickup takes effect in the same frame
   collectItemsAtPlayerPosition();
+  drawLevelItems();
 
   arduboy.setCursor(2, 56);
   arduboy.print("L");
@@ -328,36 +329,24 @@ void handleGameplay() {
   // Handle player movement with collision detection
   if (arduboy.pressed(LEFT_BUTTON)) {
     int newX = playerx - 1;
-    if (canMoveTo(newX, playery)) {
-      playerx = newX;
-      drawPlayerSprite();
-      arduboy.display();
-    }
+    if (canMoveTo(newX, playery)) playerx = newX;
   }
   if (arduboy.pressed(RIGHT_BUTTON)) {
     int newX = playerx + 1;
-    if (canMoveTo(newX, playery)) {
-      playerx = newX;
-      drawPlayerSprite();
-      arduboy.display();
-    }
+    if (canMoveTo(newX, playery)) playerx = newX;
   }
   if (arduboy.pressed(UP_BUTTON)) {
     int newY = playery - 1;
-    if (canMoveTo(playerx, newY)) {
-      playery = newY;
-      drawPlayerSprite();
-      arduboy.display();
-    }
+    if (canMoveTo(playerx, newY)) playery = newY;
   }
   if (arduboy.pressed(DOWN_BUTTON)) {
     int newY = playery + 1;
-    if (canMoveTo(playerx, newY)) {
-      playery = newY;
-      drawPlayerSprite();
-      arduboy.display();
-    }
+    if (canMoveTo(playerx, newY)) playery = newY;
   }
+
+  // Single display call per frame covers all state changes (movement, HUD, items)
+  drawPlayerSprite();
+  arduboy.display();
 }
 
 void handleMenu() {
