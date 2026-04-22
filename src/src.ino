@@ -58,17 +58,41 @@ struct InventoryState {
   bool hasKey;
 };
 
-// Global game state
-GameMode current_mode = GameMode::Menu;
-PlayerState player = {true, false};
-InventoryState inventory = {false, false, false};
+struct GameState {
+  GameMode mode;
+  PlayerState player;
+  InventoryState inventory;
+  int playerX;
+  int playerY;
+  int menuCursorY;
+  int splashIndex;
+  FacingDirection facing;
+  uint8_t currentLevel;
+};
 
-// Game variables
-int playerx = 16;
-int playery = 16;
-int select_pos = 28;
-int splash = 6;
-FacingDirection playerFacing = FacingDirection::Down;
+// Runtime state lives in one container for easier maintenance.
+GameState game = {
+  GameMode::Menu,
+  {true, false},
+  {false, false, false},
+  16,
+  16,
+  28,
+  6,
+  FacingDirection::Down,
+  0
+};
+
+// Aliases keep existing logic readable while still centralizing state.
+GameMode& current_mode = game.mode;
+PlayerState& player = game.player;
+InventoryState& inventory = game.inventory;
+int& playerx = game.playerX;
+int& playery = game.playerY;
+int& select_pos = game.menuCursorY;
+int& splash = game.splashIndex;
+FacingDirection& playerFacing = game.facing;
+uint8_t& current_level = game.currentLevel;
 
 constexpr uint8_t LEVEL_COUNT = 3;
 const LevelConfig levels[LEVEL_COUNT] = {
@@ -76,7 +100,6 @@ const LevelConfig levels[LEVEL_COUNT] = {
   {16, 112, 16, 48, 24, 24},
   {8, 120, 8, 56, 56, 24}
 };
-uint8_t current_level = 0;
 WorldItem levelItems[3] = {
   {ItemType::Sword, 32, 16, false},
   {ItemType::String, 64, 16, false},
@@ -86,6 +109,27 @@ WorldItem levelItems[3] = {
 // Collision boundaries (playable area)
 constexpr int PLAYER_WIDTH = 16;
 constexpr int PLAYER_HEIGHT = 16;
+constexpr int TILE_SIZE = 16;
+
+// Menu layout constants
+constexpr int MENU_CURSOR_X = 48;
+constexpr int MENU_CURSOR_TOP = 28;
+constexpr int MENU_CURSOR_BOTTOM = 44;
+constexpr int MENU_CURSOR_STEP = 8;
+
+// Gameplay tile area constants
+constexpr int PLAYFIELD_X_START = 16;
+constexpr int PLAYFIELD_X_END = 112;
+constexpr int PLAYFIELD_Y_START = 16;
+constexpr int PLAYFIELD_Y_END = 48;
+
+// Bottom HUD constants
+constexpr int HUD_LEVEL_X = 2;
+constexpr int HUD_LEVEL_Y = 56;
+constexpr int HUD_SWORD_X = 16;
+constexpr int HUD_STRING_X = 32;
+constexpr int HUD_KEY_X = 48;
+constexpr int HUD_ITEMS_Y = 56;
 
 // Splash screen configuration
 constexpr uint8_t SPLASH_COUNT = 7;
@@ -194,8 +238,109 @@ void startLevel(uint8_t levelIndex) {
   restrictPlayerPosition();
 }
 
+bool tryReturnToMenu() {
+  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON)) {
+    current_mode = GameMode::Menu;
+    return true;
+  }
+  return false;
+}
+
+const uint8_t* tileForCurrentLevel() {
+  if (current_level == 1) return straight;
+  if (current_level == 2) return dot;
+  return empty;
+}
+
+void drawGameplayBackground() {
+  const uint8_t* backgroundTile = tileForCurrentLevel();
+  for (int x = PLAYFIELD_X_START; x < PLAYFIELD_X_END; x += TILE_SIZE) {
+    for (int y = PLAYFIELD_Y_START; y < PLAYFIELD_Y_END; y += TILE_SIZE) {
+      Sprites::drawOverwrite(x, y, backgroundTile, 0);
+    }
+  }
+}
+
+void handlePlayerStateInput() {
+  if (arduboy.justPressed(A_BUTTON) && inventory.hasSword) {
+    player.is_armed = !player.is_armed;
+  }
+  else if (arduboy.justPressed(B_BUTTON)) {
+    player.isHuman = !player.isHuman;
+  }
+}
+
+void drawGameplayHud() {
+  // Draw side borders
+  Sprites::drawOverwrite(0, 0, cross, 0);
+  Sprites::drawOverwrite(0, 16, straight, 0);
+  Sprites::drawOverwrite(0, 32, straight, 0);
+  Sprites::drawOverwrite(0, 48, cross, 0);
+  Sprites::drawOverwrite(112, 0, cross, 0);
+  Sprites::drawOverwrite(112, 16, straight, 0);
+  Sprites::drawOverwrite(112, 32, straight, 0);
+  Sprites::drawOverwrite(112, 48, cross, 0);
+
+  // Top row
+  Sprites::drawOverwrite(16, 0, output, 0);
+  Sprites::drawOverwrite(32, 0, dot, 0);
+  Sprites::drawOverwrite(48, 0, dot, 0);
+  Sprites::drawOverwrite(64, 0, dot, 0);
+  Sprites::drawOverwrite(80, 0, dot, 0);
+  Sprites::drawOverwrite(96, 0, dot, 0);
+
+  // Bottom row
+  Sprites::drawOverwrite(16, 48, dot, 0);
+  Sprites::drawOverwrite(32, 48, dot, 0);
+  Sprites::drawOverwrite(48, 48, dot, 0);
+  Sprites::drawOverwrite(64, 48, dot, 0);
+  Sprites::drawOverwrite(80, 48, dot, 0);
+  Sprites::drawOverwrite(96, 48, input, 0);
+
+  // Inventory labels
+  if (inventory.hasSword) {
+    arduboy.setCursor(HUD_SWORD_X, HUD_ITEMS_Y);
+    arduboy.print("S");
+  }
+  if (inventory.hasString) {
+    arduboy.setCursor(HUD_STRING_X, HUD_ITEMS_Y);
+    arduboy.print("Y");
+  }
+  if (inventory.hasKey) {
+    arduboy.setCursor(HUD_KEY_X, HUD_ITEMS_Y);
+    arduboy.print("K");
+  }
+
+  arduboy.setCursor(HUD_LEVEL_X, HUD_LEVEL_Y);
+  arduboy.print("L");
+  arduboy.print(current_level + 1);
+}
+
+void handlePlayerMovement() {
+  if (arduboy.pressed(LEFT_BUTTON)) {
+    playerFacing = FacingDirection::Left;
+    int newX = playerx - 1;
+    if (canMoveTo(newX, playery)) playerx = newX;
+  }
+  if (arduboy.pressed(RIGHT_BUTTON)) {
+    playerFacing = FacingDirection::Right;
+    int newX = playerx + 1;
+    if (canMoveTo(newX, playery)) playerx = newX;
+  }
+  if (arduboy.pressed(UP_BUTTON)) {
+    playerFacing = FacingDirection::Up;
+    int newY = playery - 1;
+    if (canMoveTo(playerx, newY)) playery = newY;
+  }
+  if (arduboy.pressed(DOWN_BUTTON)) {
+    playerFacing = FacingDirection::Down;
+    int newY = playery + 1;
+    if (canMoveTo(playerx, newY)) playery = newY;
+  }
+}
+
 MenuOption selectedMenuOption() {
-  uint8_t optionIndex = (select_pos - 28) / 8;
+  uint8_t optionIndex = (select_pos - MENU_CURSOR_TOP) / MENU_CURSOR_STEP;
   if (optionIndex == 0) {
     return MenuOption::Play;
   }
@@ -235,8 +380,7 @@ void loop() {
 }
 
 void handleHelpScreen() {
-  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON)) {
-    current_mode = GameMode::Menu;
+  if (tryReturnToMenu()) {
     return;
   }
 
@@ -256,8 +400,7 @@ void handleHelpScreen() {
 }
 
 void handleSplashScreen() {
-  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON)) {
-    current_mode = GameMode::Menu;
+  if (tryReturnToMenu()) {
     return;
   }
 
@@ -271,102 +414,19 @@ void handleSplashScreen() {
 }
 
 void handleGameplay() {
-  // Return to menu if A + B pressed simultaneously
-  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON)) {
-    current_mode = GameMode::Menu;
+  if (tryReturnToMenu()) {
     return;
   }
 
-  const uint8_t* backgroundTile = empty;
-  if (current_level == 1) {
-    backgroundTile = straight;
-  }
-  else if (current_level == 2) {
-    backgroundTile = dot;
-  }
-
-  // Draw background
-  for (int backgroundx = 16; backgroundx < 112; backgroundx = backgroundx + 16) {
-    for (int backgroundy = 16; backgroundy < 48; backgroundy = backgroundy + 16) {
-      Sprites::drawOverwrite(backgroundx, backgroundy, backgroundTile, 0);
-    }
-  }
-
-  // Handle button inputs for player state
-  if (arduboy.justPressed(A_BUTTON) && inventory.hasSword) {
-    player.is_armed = !player.is_armed;
-  }
-  else if (arduboy.justPressed(B_BUTTON)) {
-    player.isHuman = !player.isHuman;
-  }
-
-  // Draw UI borders
-  Sprites::drawOverwrite(0, 0, cross, 0);
-  Sprites::drawOverwrite(0, 16, straight, 0);
-  Sprites::drawOverwrite(0, 32, straight, 0);
-  Sprites::drawOverwrite(0, 48, cross, 0);
-  Sprites::drawOverwrite(112, 0, cross, 0);
-  Sprites::drawOverwrite(112, 16, straight, 0);
-  Sprites::drawOverwrite(112, 32, straight, 0);
-  Sprites::drawOverwrite(112, 48, cross, 0);
-
-  // Draw top UI row
-  Sprites::drawOverwrite(16, 0, output, 0);
-  Sprites::drawOverwrite(32, 0, dot, 0);
-  Sprites::drawOverwrite(48, 0, dot, 0);
-  Sprites::drawOverwrite(64, 0, dot, 0);
-  Sprites::drawOverwrite(80, 0, dot, 0);
-  Sprites::drawOverwrite(96, 0, dot, 0);
-
-  Sprites::drawOverwrite(16, 48, dot, 0);
-  Sprites::drawOverwrite(32, 48, dot, 0);
-  Sprites::drawOverwrite(48, 48, dot, 0);
-  // Draw bottom UI row with text labels
-  if (inventory.hasSword) {
-    arduboy.setCursor(16, 56);
-    arduboy.print("S");
-  }
-  if (inventory.hasString) {
-    arduboy.setCursor(32, 56);
-    arduboy.print("Y");
-  }
-  if (inventory.hasKey) {
-    arduboy.setCursor(48, 56);
-    arduboy.print("K");
-  }
-  Sprites::drawOverwrite(64, 48, dot, 0);
-  Sprites::drawOverwrite(80, 48, dot, 0);
-  Sprites::drawOverwrite(96, 48, input, 0);
+  drawGameplayBackground();
+  handlePlayerStateInput();
+  drawGameplayHud();
 
   // Collect items first, then draw so pickup takes effect in the same frame
   collectItemsAtPlayerPosition();
   drawLevelItems();
 
-  arduboy.setCursor(2, 56);
-  arduboy.print("L");
-  arduboy.print(current_level + 1);
-
-  // Handle player movement with collision detection
-  if (arduboy.pressed(LEFT_BUTTON)) {
-    playerFacing = FacingDirection::Left;
-    int newX = playerx - 1;
-    if (canMoveTo(newX, playery)) playerx = newX;
-  }
-  if (arduboy.pressed(RIGHT_BUTTON)) {
-    playerFacing = FacingDirection::Right;
-    int newX = playerx + 1;
-    if (canMoveTo(newX, playery)) playerx = newX;
-  }
-  if (arduboy.pressed(UP_BUTTON)) {
-    playerFacing = FacingDirection::Up;
-    int newY = playery - 1;
-    if (canMoveTo(playerx, newY)) playery = newY;
-  }
-  if (arduboy.pressed(DOWN_BUTTON)) {
-    playerFacing = FacingDirection::Down;
-    int newY = playery + 1;
-    if (canMoveTo(playerx, newY)) playery = newY;
-  }
+  handlePlayerMovement();
 
   // Single display call per frame covers all state changes (movement, HUD, items)
   drawPlayerSprite();
@@ -375,13 +435,13 @@ void handleGameplay() {
 
 void handleMenu() {
   if (arduboy.justPressed(UP_BUTTON)) {
-    if (select_pos > 28) {
-      select_pos = select_pos - 8;
+    if (select_pos > MENU_CURSOR_TOP) {
+      select_pos = select_pos - MENU_CURSOR_STEP;
     }
   }
   else if (arduboy.justPressed(DOWN_BUTTON)) {
-    if (select_pos < 44) {
-      select_pos = select_pos + 8;
+    if (select_pos < MENU_CURSOR_BOTTOM) {
+      select_pos = select_pos + MENU_CURSOR_STEP;
     }
   }
   else if (arduboy.justPressed(A_BUTTON)) {
@@ -400,7 +460,7 @@ void handleMenu() {
   }
 
   Sprites::drawOverwrite(0, 0, background, 0);
-  Sprites::drawOverwrite(48, select_pos, select, 0);
+  Sprites::drawOverwrite(MENU_CURSOR_X, select_pos, select, 0);
   arduboy.display();
 }
 
