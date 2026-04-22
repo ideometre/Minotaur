@@ -232,6 +232,17 @@ void handleHelpScreen() {
   }
 
   Sprites::drawOverwrite(0, 0, background, 0);
+
+  // Overlay controls legend to distinguish Help from Menu
+  arduboy.setCursor(2, 2);
+  arduboy.print(F("-- CONTROLS --"));
+  arduboy.setCursor(2, 14);
+  arduboy.print(F("Arrows : move"));
+  arduboy.setCursor(2, 22);
+  arduboy.print(F("B      : transform"));
+  arduboy.setCursor(2, 30);
+  arduboy.print(F("A+B    : menu"));
+
   arduboy.display();
 }
 
