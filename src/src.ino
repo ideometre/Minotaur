@@ -6,8 +6,15 @@ Arduboy2 arduboy;
 // Game mode enumeration for state machine
 enum class GameMode {
   Menu,
+  Help,
   Splash,
   Game
+};
+
+enum class MenuOption {
+  Play,
+  Help,
+  Credits
 };
 
 // Player state tracking
@@ -178,6 +185,17 @@ void startLevel(uint8_t levelIndex) {
   restrictPlayerPosition();
 }
 
+MenuOption selectedMenuOption() {
+  uint8_t optionIndex = (select_pos - 28) / 8;
+  if (optionIndex == 0) {
+    return MenuOption::Play;
+  }
+  if (optionIndex == 1) {
+    return MenuOption::Help;
+  }
+  return MenuOption::Credits;
+}
+
 void setup() {
   arduboy.begin();
   arduboy.setFrameRate(60);
@@ -192,6 +210,9 @@ void loop() {
   arduboy.pollButtons();
 
   switch (current_mode) {
+    case GameMode::Help:
+      handleHelpScreen();
+      break;
     case GameMode::Splash:
       handleSplashScreen();
       break;
@@ -204,12 +225,29 @@ void loop() {
   }
 }
 
+void handleHelpScreen() {
+  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON)) {
+    current_mode = GameMode::Menu;
+    return;
+  }
+
+  Sprites::drawOverwrite(0, 0, background, 0);
+  arduboy.display();
+}
+
 void handleSplashScreen() {
+  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON)) {
+    current_mode = GameMode::Menu;
+    return;
+  }
+
+  Sprites::drawOverwrite(0, 0, splashScreens[splash], 0);
+
   if (arduboy.justPressed(B_BUTTON)) {
     splash = (splash + 1) % SPLASH_COUNT;
-    Sprites::drawOverwrite(0, 0, splashScreens[splash], 0);
-    arduboy.display();
   }
+
+  arduboy.display();
 }
 
 void handleGameplay() {
@@ -334,19 +372,22 @@ void handleMenu() {
     }
   }
   else if (arduboy.justPressed(A_BUTTON)) {
-    uint8_t selectedLevel = (select_pos - 28) / 8;
-    startLevel(selectedLevel);
-    current_mode = GameMode::Game;
-  }
-  else if (arduboy.justPressed(B_BUTTON)) {
-    current_mode = GameMode::Splash;
+    MenuOption option = selectedMenuOption();
+    if (option == MenuOption::Play) {
+      startLevel(0);
+      current_mode = GameMode::Game;
+    }
+    else if (option == MenuOption::Help) {
+      current_mode = GameMode::Help;
+    }
+    else if (option == MenuOption::Credits) {
+      splash = 0;
+      current_mode = GameMode::Splash;
+    }
   }
 
-  Sprites::drawOverwrite(0, 0, qrcode, 0);
+  Sprites::drawOverwrite(0, 0, background, 0);
   Sprites::drawOverwrite(48, select_pos, select, 0);
-  arduboy.setCursor(66, 56);
-  arduboy.print("N");
-  arduboy.print((select_pos - 28) / 8 + 1);
   arduboy.display();
 }
 

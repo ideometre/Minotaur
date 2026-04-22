@@ -9,7 +9,7 @@ extern const unsigned char PROGMEM mx_3[];
 extern const unsigned char PROGMEM mx_4[];
 extern const unsigned char PROGMEM mx_5[];
 extern const unsigned char PROGMEM mx_6[];
-extern const unsigned char PROGMEM qrcode[];
+extern const unsigned char PROGMEM background[];
 extern const unsigned char PROGMEM select[];
 extern const unsigned char PROGMEM minfront[];
 extern const unsigned char PROGMEM minback[];
