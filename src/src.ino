@@ -19,7 +19,7 @@ enum class MenuOption {
 
 // Player state tracking
 struct PlayerState {
-  bool is_minos;
+  bool isHuman;
   bool is_armed;
 };
 
@@ -139,7 +139,7 @@ void resetLevelItems() {
 
 void collectItemsAtPlayerPosition() {
   // In minotaur form, items are ignored and can be crossed without pickup.
-  if (!player.is_minos) {
+  if (!player.isHuman) {
     return;
   }
 
@@ -178,7 +178,7 @@ void startLevel(uint8_t levelIndex) {
   current_level = levelIndex % LEVEL_COUNT;
   playerx = levels[current_level].spawnX;
   playery = levels[current_level].spawnY;
-  player.is_minos = true;
+  player.isHuman = true;
   player.is_armed = false;
   inventory = {false, false, false};
   resetLevelItems();
@@ -277,7 +277,7 @@ void handleGameplay() {
     player.is_armed = !player.is_armed;
   }
   else if (arduboy.justPressed(B_BUTTON)) {
-    player.is_minos = !player.is_minos;
+    player.isHuman = !player.isHuman;
   }
 
   // Draw UI borders
@@ -381,7 +381,7 @@ void handleMenu() {
 }
 
 void drawPlayerSprite() {
-  if (!player.is_minos) {
+  if (!player.isHuman) {
     if (arduboy.pressed(LEFT_BUTTON)) Sprites::drawOverwrite(playerx, playery, minleft, 0);
     else if (arduboy.pressed(RIGHT_BUTTON)) Sprites::drawOverwrite(playerx, playery, minright, 0);
     else if (arduboy.pressed(UP_BUTTON)) Sprites::drawOverwrite(playerx, playery, minback, 0);
