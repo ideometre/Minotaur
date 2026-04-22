@@ -23,6 +23,13 @@ struct PlayerState {
   bool is_armed;
 };
 
+enum class FacingDirection {
+  Left,
+  Right,
+  Up,
+  Down
+};
+
 struct LevelConfig {
   int left;
   int right;
@@ -61,6 +68,7 @@ int playerx = 16;
 int playery = 16;
 int select_pos = 28;
 int splash = 6;
+FacingDirection playerFacing = FacingDirection::Down;
 
 constexpr uint8_t LEVEL_COUNT = 3;
 const LevelConfig levels[LEVEL_COUNT] = {
@@ -178,6 +186,7 @@ void startLevel(uint8_t levelIndex) {
   current_level = levelIndex % LEVEL_COUNT;
   playerx = levels[current_level].spawnX;
   playery = levels[current_level].spawnY;
+  playerFacing = FacingDirection::Down;
   player.isHuman = true;
   player.is_armed = false;
   inventory = {false, false, false};
@@ -339,18 +348,22 @@ void handleGameplay() {
 
   // Handle player movement with collision detection
   if (arduboy.pressed(LEFT_BUTTON)) {
+    playerFacing = FacingDirection::Left;
     int newX = playerx - 1;
     if (canMoveTo(newX, playery)) playerx = newX;
   }
   if (arduboy.pressed(RIGHT_BUTTON)) {
+    playerFacing = FacingDirection::Right;
     int newX = playerx + 1;
     if (canMoveTo(newX, playery)) playerx = newX;
   }
   if (arduboy.pressed(UP_BUTTON)) {
+    playerFacing = FacingDirection::Up;
     int newY = playery - 1;
     if (canMoveTo(playerx, newY)) playery = newY;
   }
   if (arduboy.pressed(DOWN_BUTTON)) {
+    playerFacing = FacingDirection::Down;
     int newY = playery + 1;
     if (canMoveTo(playerx, newY)) playery = newY;
   }
@@ -392,22 +405,26 @@ void handleMenu() {
 }
 
 void drawPlayerSprite() {
+  const uint8_t* sprite = nullptr;
+
   if (!player.isHuman) {
-    if (arduboy.pressed(LEFT_BUTTON)) Sprites::drawOverwrite(playerx, playery, minleft, 0);
-    else if (arduboy.pressed(RIGHT_BUTTON)) Sprites::drawOverwrite(playerx, playery, minright, 0);
-    else if (arduboy.pressed(UP_BUTTON)) Sprites::drawOverwrite(playerx, playery, minback, 0);
-    else if (arduboy.pressed(DOWN_BUTTON)) Sprites::drawOverwrite(playerx, playery, minfront, 0);
+    if (playerFacing == FacingDirection::Left) sprite = minleft;
+    else if (playerFacing == FacingDirection::Right) sprite = minright;
+    else if (playerFacing == FacingDirection::Up) sprite = minback;
+    else sprite = minfront;
   }
   else if (player.is_armed) {
-    if (arduboy.pressed(LEFT_BUTTON)) Sprites::drawOverwrite(playerx, playery, armed_left, 0);
-    else if (arduboy.pressed(RIGHT_BUTTON)) Sprites::drawOverwrite(playerx, playery, armed_right, 0);
-    else if (arduboy.pressed(UP_BUTTON)) Sprites::drawOverwrite(playerx, playery, armed_back, 0);
-    else if (arduboy.pressed(DOWN_BUTTON)) Sprites::drawOverwrite(playerx, playery, armed_front, 0);
+    if (playerFacing == FacingDirection::Left) sprite = armed_left;
+    else if (playerFacing == FacingDirection::Right) sprite = armed_right;
+    else if (playerFacing == FacingDirection::Up) sprite = armed_back;
+    else sprite = armed_front;
   }
   else {
-    if (arduboy.pressed(LEFT_BUTTON)) Sprites::drawOverwrite(playerx, playery, left, 0);
-    else if (arduboy.pressed(RIGHT_BUTTON)) Sprites::drawOverwrite(playerx, playery, right, 0);
-    else if (arduboy.pressed(UP_BUTTON)) Sprites::drawOverwrite(playerx, playery, back, 0);
-    else if (arduboy.pressed(DOWN_BUTTON)) Sprites::drawOverwrite(playerx, playery, front, 0);
+    if (playerFacing == FacingDirection::Left) sprite = left;
+    else if (playerFacing == FacingDirection::Right) sprite = right;
+    else if (playerFacing == FacingDirection::Up) sprite = back;
+    else sprite = front;
   }
+
+  Sprites::drawOverwrite(playerx, playery, sprite, 0);
 }
