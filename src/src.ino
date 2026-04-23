@@ -12,7 +12,8 @@ enum class GameMode
   Help,
   Splash,
   Game,
-  Win
+  Win,
+  Lose
 };
 
 enum class MenuOption
@@ -82,6 +83,7 @@ struct GameState
   FacingDirection facing;
   uint8_t currentScreen;
   bool winJinglePlayed;
+  bool minotaurAlive;
 };
 
 // Runtime state lives in one container for easier maintenance.
@@ -95,7 +97,8 @@ GameState game = {
     6,
     FacingDirection::Down,
     0,    // currentScreen
-    false // winJinglePlayed
+    false,
+    true // minotaurAlive
 };
 
   const uint16_t winJingle[] PROGMEM = {
@@ -167,6 +170,9 @@ struct MovementBounds
 constexpr int TILE_SIZE = 16;
 constexpr int TILE_COLS = WIDTH / TILE_SIZE;
 constexpr int TILE_ROWS = HEIGHT / TILE_SIZE;
+constexpr uint8_t MINOTAUR_SCREEN = 1;
+constexpr int MINOTAUR_X = 64;
+constexpr int MINOTAUR_Y = 24;
 constexpr uint8_t EXIT_DOOR_SCREEN = 3;
 constexpr int EXIT_DOOR_TILE_X = TILE_COLS - 1;
 constexpr int EXIT_DOOR_TILE_Y = 2;
@@ -490,9 +496,51 @@ void startGame()
   game.player.isHuman = true;
   game.player.isArmed = false;
   game.winJinglePlayed = false;
+  game.minotaurAlive = true;
   game.inventory = {false, false, false};
   resetItems();
   restrictPlayerPosition();
+}
+
+void drawMinotaurNpc()
+{
+  if (game.currentScreen != MINOTAUR_SCREEN)
+  {
+    return;
+  }
+
+  if (game.minotaurAlive)
+  {
+    Sprites::drawOverwrite(MINOTAUR_X, MINOTAUR_Y, minleft, 0);
+  }
+  else
+  {
+    // Corpse sprite is a 90-degree lying variant.
+    Sprites::drawOverwrite(MINOTAUR_X, MINOTAUR_Y, min_dead, 0);
+  }
+}
+
+void handleMinotaurCollision()
+{
+  if (!game.minotaurAlive || game.currentScreen != MINOTAUR_SCREEN)
+  {
+    return;
+  }
+
+  if (!rectanglesOverlap(game.playerX, game.playerY, PLAYER_WIDTH, PLAYER_HEIGHT,
+                         MINOTAUR_X, MINOTAUR_Y, PLAYER_WIDTH, PLAYER_HEIGHT))
+  {
+    return;
+  }
+
+  if (game.player.isArmed)
+  {
+    game.minotaurAlive = false;
+  }
+  else
+  {
+    game.mode = GameMode::Lose;
+  }
 }
 
 bool tryReturnToMenu()
@@ -712,10 +760,6 @@ void handlePlayerStateInput()
   {
     game.player.isArmed = !game.player.isArmed;
   }
-  else if (arduboy.justPressed(A_BUTTON))
-  {
-    game.player.isHuman = !game.player.isHuman;
-  }
 }
 
 void drawGameplayHud()
@@ -836,6 +880,9 @@ void loop()
   case GameMode::Win:
     handleWinScreen();
     break;
+  case GameMode::Lose:
+    handleLoseScreen();
+    break;
   case GameMode::Menu:
     handleMenu();
     break;
@@ -857,7 +904,7 @@ void handleHelpScreen()
   arduboy.setCursor(2, 14);
   arduboy.print(F("Arrows : move"));
   arduboy.setCursor(2, 22);
-  arduboy.print(F("B      : transform"));
+  arduboy.print(F("B      : equip sword"));
   arduboy.setCursor(2, 30);
   arduboy.print(F("A+B    : menu"));
 
@@ -895,8 +942,15 @@ void handleGameplay()
   // Collect items first, then draw so pickup takes effect in the same frame
   collectItemsAtPlayerPosition();
   drawLevelItems();
+  drawMinotaurNpc();
 
   handlePlayerMovement();
+  handleMinotaurCollision();
+
+  if (game.mode == GameMode::Lose)
+  {
+    return;
+  }
 
   if (hasPlayerEscaped())
   {
@@ -924,6 +978,18 @@ void handleWinScreen()
 
   arduboy.setCursor(22, 28);
   arduboy.print(F("You are free !"));
+  arduboy.display();
+}
+
+void handleLoseScreen()
+{
+  if (tryReturnToMenu())
+  {
+    return;
+  }
+
+  arduboy.setCursor(24, 28);
+  arduboy.print(F("You're dead..."));
   arduboy.display();
 }
 

@@ -15,6 +15,7 @@ extern const unsigned char PROGMEM minfront[];
 extern const unsigned char PROGMEM minback[];
 extern const unsigned char PROGMEM minleft[];
 extern const unsigned char PROGMEM minright[];
+extern const unsigned char PROGMEM min_dead[];
 extern const unsigned char PROGMEM sword[];
 extern const unsigned char PROGMEM string[];
 extern const unsigned char PROGMEM key[];
