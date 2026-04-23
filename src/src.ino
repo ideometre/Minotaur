@@ -488,7 +488,16 @@ void checkScreenTransition(FacingDirection dir)
 
 void drawGameplayBackground()
 {
-  // No internal wall sprites: keep only the external labyrinth walls.
+  // Fill the full room with the default empty tile.
+  for (int x = 0; x < WIDTH; x += 16)
+  {
+    for (int y = 0; y < HEIGHT; y += 16)
+    {
+      Sprites::drawOverwrite(x, y, empty, 0);
+    }
+  }
+
+  // Keep only the external labyrinth walls over the default background.
   drawOuterLabyrinthWalls();
 }
 
