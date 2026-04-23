@@ -96,10 +96,12 @@ GameState game = {
 // Single playfield config (one bounded area, shared by all screens)
 const LevelConfig level = {16, 112, 16, 48, 32, 24};
 
-WorldItem levelItems[3] = {
-    {ItemType::Sword, 0, 32, 16, false},
-    {ItemType::String, 1, 64, 16, false},
-    {ItemType::Key, 2, 80, 32, false}};
+constexpr uint8_t ITEM_COUNT = 3;
+const WorldItem initialItems[ITEM_COUNT] = {
+  {ItemType::Sword, 0, 32, 24, false},
+  {ItemType::String, 2, 64, 24, false},
+  {ItemType::Key, 3, 80, 24, false}};
+WorldItem levelItems[ITEM_COUNT];
 
 // Collision boundaries (playable area)
 constexpr int PLAYER_WIDTH = 16;
@@ -199,9 +201,10 @@ void setInventoryItem(ItemType type, bool value)
 
 void resetItems()
 {
-  levelItems[0] = {ItemType::Sword, 0, 32, 24, false};
-  levelItems[1] = {ItemType::String, 2, 64, 24, false};
-  levelItems[2] = {ItemType::Key, 3, 80, 24, false};
+  for (uint8_t i = 0; i < ITEM_COUNT; ++i)
+  {
+    levelItems[i] = initialItems[i];
+  }
 }
 
 void collectItemsAtPlayerPosition()
@@ -212,7 +215,7 @@ void collectItemsAtPlayerPosition()
     return;
   }
 
-  for (uint8_t i = 0; i < 3; ++i)
+  for (uint8_t i = 0; i < ITEM_COUNT; ++i)
   {
     if (levelItems[i].collected || levelItems[i].screen != game.currentScreen)
     {
@@ -233,7 +236,7 @@ void collectItemsAtPlayerPosition()
 
 void drawLevelItems()
 {
-  for (uint8_t i = 0; i < 3; ++i)
+  for (uint8_t i = 0; i < ITEM_COUNT; ++i)
   {
     if (!levelItems[i].collected && levelItems[i].screen == game.currentScreen)
     {
