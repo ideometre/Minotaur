@@ -98,7 +98,7 @@ const LevelConfig level = {16, 112, 16, 48, 32, 24};
 
 constexpr uint8_t ITEM_COUNT = 3;
 const WorldItem initialItems[ITEM_COUNT] = {
-  {ItemType::Sword, 0, 32, 24, false},
+  {ItemType::Sword, 1, 32, 24, false},
   {ItemType::String, 2, 64, 24, false},
   {ItemType::Key, 3, 80, 24, false}};
 WorldItem levelItems[ITEM_COUNT];
@@ -152,6 +152,10 @@ struct MovementBounds
   int bottom;
 };
 
+constexpr int TILE_SIZE = 16;
+constexpr int TILE_COLS = WIDTH / TILE_SIZE;
+constexpr int TILE_ROWS = HEIGHT / TILE_SIZE;
+
 MovementBounds getMovementBounds()
 {
   return {
@@ -159,6 +163,141 @@ MovementBounds getMovementBounds()
       hasAdjacentScreen(FacingDirection::Right) ? WIDTH : WIDTH - WALL_THICKNESS,
       hasAdjacentScreen(FacingDirection::Up) ? 0 : WALL_THICKNESS,
       hasAdjacentScreen(FacingDirection::Down) ? HEIGHT : HEIGHT - WALL_THICKNESS};
+}
+
+const uint8_t *resolveWallVariant(const uint8_t *sprite, uint8_t rotation)
+{
+  uint8_t rot = rotation & 0x03;
+
+  if (sprite == straight)
+  {
+    return (rot % 2 == 0) ? straight : straight_h;
+  }
+
+  if (sprite == angle)
+  {
+    if (rot == 1)
+      return angle_r1;
+    if (rot == 2)
+      return angle_r2;
+    if (rot == 3)
+      return angle_r3;
+  }
+
+  return sprite;
+}
+
+bool isSolidWallSprite(const uint8_t *sprite)
+{
+  return sprite == end ||
+         sprite == angle ||
+         sprite == dot ||
+         sprite == wallt ||
+         sprite == straight ||
+         sprite == straight_h ||
+         sprite == angle_r1 ||
+         sprite == angle_r2 ||
+         sprite == angle_r3 ||
+         sprite == cross;
+}
+
+const uint8_t *outerWallSpriteAtTile(int tileX, int tileY)
+{
+  const bool hasLeft = hasAdjacentScreen(FacingDirection::Left);
+  const bool hasRight = hasAdjacentScreen(FacingDirection::Right);
+  const bool hasUp = hasAdjacentScreen(FacingDirection::Up);
+  const bool hasDown = hasAdjacentScreen(FacingDirection::Down);
+
+  // Corners first, then straights.
+  if (tileX == 0 && tileY == 0 && !hasLeft && !hasUp)
+    return resolveWallVariant(angle, 0);
+  if (tileX == TILE_COLS - 1 && tileY == 0 && !hasRight && !hasUp)
+    return resolveWallVariant(angle, 1);
+  if (tileX == 0 && tileY == TILE_ROWS - 1 && !hasLeft && !hasDown)
+    return resolveWallVariant(angle, 3);
+  if (tileX == TILE_COLS - 1 && tileY == TILE_ROWS - 1 && !hasRight && !hasDown)
+    return resolveWallVariant(angle, 2);
+
+  if (tileX == 0)
+  {
+    if (!hasLeft)
+      return resolveWallVariant(straight, 0);
+    if (!hasUp && tileY == 0)
+      return resolveWallVariant(straight, 1);
+    if (!hasDown && tileY == TILE_ROWS - 1)
+      return resolveWallVariant(straight, 1);
+  }
+
+  if (tileX == TILE_COLS - 1)
+  {
+    if (!hasRight)
+      return resolveWallVariant(straight, 0);
+    if (!hasUp && tileY == 0)
+      return resolveWallVariant(straight, 1);
+    if (!hasDown && tileY == TILE_ROWS - 1)
+      return resolveWallVariant(straight, 1);
+  }
+
+  if (tileY == 0)
+  {
+    if (!hasUp && tileX >= 1 && tileX <= TILE_COLS - 2)
+      return resolveWallVariant(straight, 1);
+    if (!hasLeft && tileX == 0)
+      return resolveWallVariant(straight, 0);
+    if (!hasRight && tileX == TILE_COLS - 1)
+      return resolveWallVariant(straight, 0);
+  }
+
+  if (tileY == TILE_ROWS - 1)
+  {
+    if (!hasDown && tileX >= 1 && tileX <= TILE_COLS - 2)
+      return resolveWallVariant(straight, 3);
+    if (!hasLeft && tileX == 0)
+      return resolveWallVariant(straight, 0);
+    if (!hasRight && tileX == TILE_COLS - 1)
+      return resolveWallVariant(straight, 0);
+  }
+
+  return nullptr;
+}
+
+bool collidesWithSolidWallSprite(int x, int y)
+{
+  int minTileX = x / TILE_SIZE;
+  int maxTileX = (x + PLAYER_WIDTH - 1) / TILE_SIZE;
+  int minTileY = y / TILE_SIZE;
+  int maxTileY = (y + PLAYER_HEIGHT - 1) / TILE_SIZE;
+
+  if (minTileX < 0)
+    minTileX = 0;
+  if (minTileY < 0)
+    minTileY = 0;
+  if (maxTileX >= TILE_COLS)
+    maxTileX = TILE_COLS - 1;
+  if (maxTileY >= TILE_ROWS)
+    maxTileY = TILE_ROWS - 1;
+
+  for (int tileY = minTileY; tileY <= maxTileY; ++tileY)
+  {
+    for (int tileX = minTileX; tileX <= maxTileX; ++tileX)
+    {
+      const uint8_t *tileSprite = outerWallSpriteAtTile(tileX, tileY);
+      if (tileSprite && isSolidWallSprite(tileSprite))
+      {
+        int tilePx = tileX * TILE_SIZE;
+        int tilePy = tileY * TILE_SIZE;
+        if (x < tilePx + TILE_SIZE &&
+            x + PLAYER_WIDTH > tilePx &&
+            y < tilePy + TILE_SIZE &&
+            y + PLAYER_HEIGHT > tilePy)
+        {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
 }
 
 // Collision detection functions
@@ -169,7 +308,8 @@ bool canMoveTo(int x, int y)
   return x >= bounds.left &&
          x + PLAYER_WIDTH <= bounds.right &&
          y >= bounds.top &&
-         y + PLAYER_HEIGHT <= bounds.bottom;
+         y + PLAYER_HEIGHT <= bounds.bottom &&
+         !collidesWithSolidWallSprite(x, y);
 }
 
 bool rectanglesOverlap(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
@@ -306,24 +446,7 @@ bool hasAdjacentScreen(FacingDirection dir)
 // rotation: 0=0°, 1=90° CW, 2=180°, 3=270° CW.
 void drawWallVariant(int x, int y, const uint8_t *sprite, uint8_t rotation)
 {
-  const uint8_t *variant = sprite;
-  uint8_t rot = rotation & 0x03;
-
-  if (sprite == straight)
-  {
-    variant = (rot % 2 == 0) ? straight : straight_h;
-  }
-  else if (sprite == angle)
-  {
-    if (rot == 1)
-      variant = angle_r1;
-    else if (rot == 2)
-      variant = angle_r2;
-    else if (rot == 3)
-      variant = angle_r3;
-  }
-
-  Sprites::drawOverwrite(x, y, variant, 0);
+  Sprites::drawOverwrite(x, y, resolveWallVariant(sprite, rotation), 0);
 }
 
 void drawOuterLabyrinthWalls()
