@@ -9,7 +9,8 @@ enum class GameMode
   Menu,
   Help,
   Splash,
-  Game
+  Game,
+  Win
 };
 
 enum class MenuOption
@@ -155,6 +156,58 @@ struct MovementBounds
 constexpr int TILE_SIZE = 16;
 constexpr int TILE_COLS = WIDTH / TILE_SIZE;
 constexpr int TILE_ROWS = HEIGHT / TILE_SIZE;
+constexpr uint8_t EXIT_DOOR_SCREEN = 3;
+constexpr int EXIT_DOOR_TILE_X = TILE_COLS - 1;
+constexpr int EXIT_DOOR_TILE_Y = 2;
+
+int exitDoorPixelX()
+{
+  return EXIT_DOOR_TILE_X * TILE_SIZE;
+}
+
+int exitDoorPixelY()
+{
+  return EXIT_DOOR_TILE_Y * TILE_SIZE;
+}
+
+bool isExitDoorTile(int tileX, int tileY)
+{
+  return game.currentScreen == EXIT_DOOR_SCREEN &&
+         tileX == EXIT_DOOR_TILE_X &&
+         tileY == EXIT_DOOR_TILE_Y;
+}
+
+bool isExitDoorOpen()
+{
+  if (!game.inventory.hasKey || game.currentScreen != EXIT_DOOR_SCREEN)
+  {
+    return false;
+  }
+
+  // Open the door when the player is touching or overlapping it.
+  return rectanglesOverlap(game.playerX, game.playerY, PLAYER_WIDTH, PLAYER_HEIGHT,
+                           exitDoorPixelX() - 1, exitDoorPixelY() - 1,
+                           PLAYER_WIDTH + 2, PLAYER_HEIGHT + 2);
+}
+
+bool hasPlayerEscaped()
+{
+  return isExitDoorOpen() &&
+         game.currentScreen == EXIT_DOOR_SCREEN &&
+         game.playerX == exitDoorPixelX() &&
+         game.playerY == exitDoorPixelY();
+}
+
+bool overlapsExitDoorTile(int x, int y)
+{
+  if (game.currentScreen != EXIT_DOOR_SCREEN)
+  {
+    return false;
+  }
+
+  return rectanglesOverlap(x, y, PLAYER_WIDTH, PLAYER_HEIGHT,
+                           exitDoorPixelX(), exitDoorPixelY(), TILE_SIZE, TILE_SIZE);
+}
 
 MovementBounds getMovementBounds()
 {
@@ -193,6 +246,7 @@ bool isSolidWallSprite(const uint8_t *sprite)
          sprite == angle ||
          sprite == dot ||
          sprite == wallt ||
+         sprite == closed ||
          sprite == straight ||
          sprite == straight_h ||
          sprite == angle_r1 ||
@@ -203,6 +257,11 @@ bool isSolidWallSprite(const uint8_t *sprite)
 
 const uint8_t *outerWallSpriteAtTile(int tileX, int tileY)
 {
+  if (isExitDoorTile(tileX, tileY))
+  {
+    return isExitDoorOpen() ? output : closed;
+  }
+
   const bool hasLeft = hasAdjacentScreen(FacingDirection::Left);
   const bool hasRight = hasAdjacentScreen(FacingDirection::Right);
   const bool hasUp = hasAdjacentScreen(FacingDirection::Up);
@@ -304,12 +363,24 @@ bool collidesWithSolidWallSprite(int x, int y)
 bool canMoveTo(int x, int y)
 {
   MovementBounds bounds = getMovementBounds();
+  bool insideBounds = x >= bounds.left &&
+                      x + PLAYER_WIDTH <= bounds.right &&
+                      y >= bounds.top &&
+                      y + PLAYER_HEIGHT <= bounds.bottom;
 
-  return x >= bounds.left &&
-         x + PLAYER_WIDTH <= bounds.right &&
-         y >= bounds.top &&
-         y + PLAYER_HEIGHT <= bounds.bottom &&
-         !collidesWithSolidWallSprite(x, y);
+  if (!insideBounds)
+  {
+    // Allow entering the opened exit door tile even though it sits on an outer wall.
+    bool canStepIntoOpenedDoor = isExitDoorOpen() &&
+                                 overlapsExitDoorTile(x, y) &&
+                                 x <= exitDoorPixelX();
+    if (!canStepIntoOpenedDoor)
+    {
+      return false;
+    }
+  }
+
+  return !collidesWithSolidWallSprite(x, y);
 }
 
 bool rectanglesOverlap(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
@@ -449,6 +520,16 @@ void drawWallVariant(int x, int y, const uint8_t *sprite, uint8_t rotation)
   Sprites::drawOverwrite(x, y, resolveWallVariant(sprite, rotation), 0);
 }
 
+void drawExitDoor()
+{
+  if (game.currentScreen != EXIT_DOOR_SCREEN)
+  {
+    return;
+  }
+
+  Sprites::drawOverwrite(exitDoorPixelX(), exitDoorPixelY(), isExitDoorOpen() ? output : closed, 0);
+}
+
 void drawOuterLabyrinthWalls()
 {
   const bool hasLeft = hasAdjacentScreen(FacingDirection::Left);
@@ -554,6 +635,8 @@ void drawOuterLabyrinthWalls()
   {
     drawWallVariant(WIDTH - 16, HEIGHT - 16, angle, 2);
   }
+
+  drawExitDoor();
 }
 
 // Attempt to transition to an adjacent screen in the given direction.
@@ -738,6 +821,9 @@ void loop()
   case GameMode::Game:
     handleGameplay();
     break;
+  case GameMode::Win:
+    handleWinScreen();
+    break;
   case GameMode::Menu:
     handleMenu();
     break;
@@ -800,8 +886,26 @@ void handleGameplay()
 
   handlePlayerMovement();
 
+  if (hasPlayerEscaped())
+  {
+    game.mode = GameMode::Win;
+    return;
+  }
+
   // Single display call per frame covers all state changes (movement, HUD, items)
   drawPlayerSprite();
+  arduboy.display();
+}
+
+void handleWinScreen()
+{
+  if (tryReturnToMenu())
+  {
+    return;
+  }
+
+  arduboy.setCursor(22, 28);
+  arduboy.print(F("You are free !"));
   arduboy.display();
 }
 
