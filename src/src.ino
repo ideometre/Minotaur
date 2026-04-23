@@ -299,48 +299,28 @@ bool hasAdjacentScreen(FacingDirection dir)
   return false;
 }
 
-bool sprite16PixelAt(const uint8_t *sprite, uint8_t px, uint8_t py)
-{
-  uint8_t w = pgm_read_byte(sprite);
-  uint8_t byteValue = pgm_read_byte(sprite + 2 + px + (py / 8) * w);
-  return (byteValue & (1 << (py & 7))) != 0;
-}
-
-// Draw a 16x16 sprite with overwrite semantics and 90-degree rotations.
+// Draw a wall sprite variant selected by rotation.
 // rotation: 0=0°, 1=90° CW, 2=180°, 3=270° CW.
 void drawRotated16Overwrite(int x, int y, const uint8_t *sprite, uint8_t rotation)
 {
-  arduboy.fillRect(x, y, 16, 16, BLACK);
+  const uint8_t *variant = sprite;
+  uint8_t rot = rotation & 0x03;
 
-  for (uint8_t dy = 0; dy < 16; dy++)
+  if (sprite == straight)
   {
-    for (uint8_t dx = 0; dx < 16; dx++)
-    {
-      uint8_t sx = dx;
-      uint8_t sy = dy;
-
-      if (rotation == 1)
-      {
-        sx = dy;
-        sy = 15 - dx;
-      }
-      else if (rotation == 2)
-      {
-        sx = 15 - dx;
-        sy = 15 - dy;
-      }
-      else if (rotation == 3)
-      {
-        sx = 15 - dy;
-        sy = dx;
-      }
-
-      if (sprite16PixelAt(sprite, sx, sy))
-      {
-        arduboy.drawPixel(x + dx, y + dy, WHITE);
-      }
-    }
+    variant = (rot % 2 == 0) ? straight : straight_h;
   }
+  else if (sprite == angle)
+  {
+    if (rot == 1)
+      variant = angle_r1;
+    else if (rot == 2)
+      variant = angle_r2;
+    else if (rot == 3)
+      variant = angle_r3;
+  }
+
+  Sprites::drawOverwrite(x, y, variant, 0);
 }
 
 void drawOuterLabyrinthWalls()
