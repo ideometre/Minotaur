@@ -613,11 +613,11 @@ void drawGameplayBackground()
 
 void handlePlayerStateInput()
 {
-  if (arduboy.justPressed(A_BUTTON) && game.inventory.hasSword)
+  if (arduboy.justPressed(B_BUTTON) && game.inventory.hasSword)
   {
     game.player.isArmed = !game.player.isArmed;
   }
-  else if (arduboy.justPressed(B_BUTTON))
+  else if (arduboy.justPressed(A_BUTTON))
   {
     game.player.isHuman = !game.player.isHuman;
   }
@@ -775,7 +775,7 @@ void handleSplashScreen()
 
   Sprites::drawOverwrite(0, 0, splashScreens[game.splashIndex], 0);
 
-  if (arduboy.justPressed(B_BUTTON))
+  if (arduboy.justPressed(A_BUTTON))
   {
     game.splashIndex = (game.splashIndex + 1) % SPLASH_COUNT;
   }
@@ -821,7 +821,7 @@ void handleMenu()
       game.menuCursorY = game.menuCursorY + MENU_CURSOR_STEP;
     }
   }
-  else if (arduboy.justPressed(A_BUTTON))
+  else if (arduboy.justPressed(B_BUTTON))
   {
     MenuOption option = selectedMenuOption();
     if (option == MenuOption::Play)
