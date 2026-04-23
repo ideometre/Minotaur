@@ -304,7 +304,7 @@ bool hasAdjacentScreen(FacingDirection dir)
 
 // Draw a wall sprite variant selected by rotation.
 // rotation: 0=0°, 1=90° CW, 2=180°, 3=270° CW.
-void drawRotated16Overwrite(int x, int y, const uint8_t *sprite, uint8_t rotation)
+void drawWallVariant(int x, int y, const uint8_t *sprite, uint8_t rotation)
 {
   const uint8_t *variant = sprite;
   uint8_t rot = rotation & 0x03;
@@ -328,103 +328,108 @@ void drawRotated16Overwrite(int x, int y, const uint8_t *sprite, uint8_t rotatio
 
 void drawOuterLabyrinthWalls()
 {
+  const bool hasLeft = hasAdjacentScreen(FacingDirection::Left);
+  const bool hasRight = hasAdjacentScreen(FacingDirection::Right);
+  const bool hasUp = hasAdjacentScreen(FacingDirection::Up);
+  const bool hasDown = hasAdjacentScreen(FacingDirection::Down);
+
   // Draw only the external walls of the global 2x2 labyrinth using wall sprites.
-  if (!hasAdjacentScreen(FacingDirection::Left))
+  if (!hasLeft)
   {
     for (int y = 0; y < HEIGHT; y += 16)
     {
-      drawRotated16Overwrite(0, y, straight, 0);
+      drawWallVariant(0, y, straight, 0);
     }
   }
   else
   {
     // Transition edge: keep markers only where this side touches outer borders.
-    if (!hasAdjacentScreen(FacingDirection::Up))
+    if (!hasUp)
     {
-      drawRotated16Overwrite(0, 0, straight, 1);
+      drawWallVariant(0, 0, straight, 1);
     }
-    if (!hasAdjacentScreen(FacingDirection::Down))
+    if (!hasDown)
     {
-      drawRotated16Overwrite(0, HEIGHT - 16, straight, 1);
+      drawWallVariant(0, HEIGHT - 16, straight, 1);
     }
   }
 
-  if (!hasAdjacentScreen(FacingDirection::Right))
+  if (!hasRight)
   {
     for (int y = 0; y < HEIGHT; y += 16)
     {
-      drawRotated16Overwrite(WIDTH - 16, y, straight, 0);
+      drawWallVariant(WIDTH - 16, y, straight, 0);
     }
   }
   else
   {
     // Transition edge: keep markers only where this side touches outer borders.
-    if (!hasAdjacentScreen(FacingDirection::Up))
+    if (!hasUp)
     {
-      drawRotated16Overwrite(WIDTH - 16, 0, straight, 1);
+      drawWallVariant(WIDTH - 16, 0, straight, 1);
     }
-    if (!hasAdjacentScreen(FacingDirection::Down))
+    if (!hasDown)
     {
-      drawRotated16Overwrite(WIDTH - 16, HEIGHT - 16, straight, 1);
+      drawWallVariant(WIDTH - 16, HEIGHT - 16, straight, 1);
     }
   }
 
-  if (!hasAdjacentScreen(FacingDirection::Up))
+  if (!hasUp)
   {
     for (int x = level.left; x <= level.right - 16; x += 16)
     {
-      drawRotated16Overwrite(x, 0, straight, 1);
+      drawWallVariant(x, 0, straight, 1);
     }
   }
   else
   {
     // Transition edge: keep markers only where this side touches outer borders.
-    if (!hasAdjacentScreen(FacingDirection::Left))
+    if (!hasLeft)
     {
-      drawRotated16Overwrite(0, 0, straight, 0);
+      drawWallVariant(0, 0, straight, 0);
     }
-    if (!hasAdjacentScreen(FacingDirection::Right))
+    if (!hasRight)
     {
-      drawRotated16Overwrite(WIDTH - 16, 0, straight, 0);
+      drawWallVariant(WIDTH - 16, 0, straight, 0);
     }
   }
 
-  if (!hasAdjacentScreen(FacingDirection::Down))
+  if (!hasDown)
   {
     for (int x = level.left; x <= level.right - 16; x += 16)
     {
-      drawRotated16Overwrite(x, HEIGHT - 16, straight, 3);
+      drawWallVariant(x, HEIGHT - 16, straight, 3);
     }
   }
   else
   {
     // Transition edge: keep markers only where this side touches outer borders.
-    if (!hasAdjacentScreen(FacingDirection::Left))
+    if (!hasLeft)
     {
-      drawRotated16Overwrite(0, HEIGHT - 16, straight, 0);
+      drawWallVariant(0, HEIGHT - 16, straight, 0);
     }
-    if (!hasAdjacentScreen(FacingDirection::Right))
+    if (!hasRight)
     {
-      drawRotated16Overwrite(WIDTH - 16, HEIGHT - 16, straight, 0);
+      drawWallVariant(WIDTH - 16, HEIGHT - 16, straight, 0);
     }
   }
 
   // Corner caps
-  if (!hasAdjacentScreen(FacingDirection::Left) && !hasAdjacentScreen(FacingDirection::Up))
+  if (!hasLeft && !hasUp)
   {
-    drawRotated16Overwrite(0, 0, angle, 0);
+    drawWallVariant(0, 0, angle, 0);
   }
-  if (!hasAdjacentScreen(FacingDirection::Right) && !hasAdjacentScreen(FacingDirection::Up))
+  if (!hasRight && !hasUp)
   {
-    drawRotated16Overwrite(WIDTH - 16, 0, angle, 1);
+    drawWallVariant(WIDTH - 16, 0, angle, 1);
   }
-  if (!hasAdjacentScreen(FacingDirection::Left) && !hasAdjacentScreen(FacingDirection::Down))
+  if (!hasLeft && !hasDown)
   {
-    drawRotated16Overwrite(0, HEIGHT - 16, angle, 3);
+    drawWallVariant(0, HEIGHT - 16, angle, 3);
   }
-  if (!hasAdjacentScreen(FacingDirection::Right) && !hasAdjacentScreen(FacingDirection::Down))
+  if (!hasRight && !hasDown)
   {
-    drawRotated16Overwrite(WIDTH - 16, HEIGHT - 16, angle, 2);
+    drawWallVariant(WIDTH - 16, HEIGHT - 16, angle, 2);
   }
 }
 
@@ -432,8 +437,6 @@ void drawOuterLabyrinthWalls()
 // If no adjacent screen exists, the wall simply blocks movement.
 void checkScreenTransition(FacingDirection dir)
 {
-  uint8_t col = game.currentScreen % SCREEN_COLS;
-
   switch (dir)
   {
   case FacingDirection::Right:
@@ -532,6 +535,7 @@ void drawGameplayHud()
 void handlePlayerMovement()
 {
   // Process only one direction per frame to avoid double transitions.
+  // Priority order when multiple inputs are held: LEFT > RIGHT > UP > DOWN.
   if (arduboy.pressed(LEFT_BUTTON))
   {
     game.facing = FacingDirection::Left;
