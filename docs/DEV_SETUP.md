@@ -49,6 +49,13 @@ Cette tache installe:
 
 - le core `arduino:avr`
 - la librairie `Arduboy2`
+- la librairie `ArduboyTones`
+
+Si besoin, installation manuelle Linux:
+
+```bash
+arduino-cli lib install ArduboyTones
+```
 
 ## 4) Build et upload
 
@@ -82,12 +89,29 @@ Prerequis Windows:
 
 - `arduino-cli.exe` installe et accessible dans le PATH Windows, ou `minotaur.arduinoCliWindows` pointe vers son chemin complet
 - Device visible dans `usbipd list` puis attache a WSL si besoin
+- Librairies Arduino presentes cote Windows (`Arduboy2` et `ArduboyTones`)
+
+Installation manuelle cote Windows (si la compilation echoue avec `ArduboyTones.h: No such file or directory`):
+
+```powershell
+& "C:\Program Files\Arduino IDE\resources\app\lib\backend\resources\arduino-cli.exe" lib install ArduboyTones
+```
 
 Si la tache `Arduino: Verify Port (Windows COM)` echoue avec un message du type `arduino-cli.exe not found`, renseigner le chemin complet dans [../.vscode/settings.json](../.vscode/settings.json), par exemple:
 
 `C:\\Program Files\\Arduino IDE\\resources\\app\\lib\\backend\\resources\\arduino-cli.exe`
 
-## 6) Debug pratique sur Arduboy
+## 6) Son et jingle de victoire
+
+Le jeu joue un court jingle quand l'ecran de victoire s'affiche (`You are free !`).
+
+Checklist si vous n'entendez rien:
+
+- verifier le switch audio de l'Arduboy
+- verifier que le firmware a bien ete rebuild et upload apres ajout du son
+- verifier que la compilation se fait dans le meme environnement que l'upload (Linux ou Windows) avec `ArduboyTones` installee
+
+## 7) Debug pratique sur Arduboy
 
 Le debug pas-a-pas materiel n'est pas disponible nativement comme sur un MCU avec probe JTAG.
 
@@ -97,7 +121,7 @@ Workflow recommande:
 - moniteur serie via la tache `Arduino: Monitor`
 - debug gameplay/UX via tests rapides sur hardware (latence, collisions, rendu)
 
-## 7) Points utiles pour la suite
+## 8) Points utiles pour la suite
 
 - Sketch principal: [../src/src.ino](../src/src.ino)
 - Tache build: `Arduino: Build`

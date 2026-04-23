@@ -1,7 +1,9 @@
 #include <Arduboy2.h>
+#include <ArduboyTones.h>
 #include "sprites.h"
 
 Arduboy2 arduboy;
+ArduboyTones sound(arduboy.audio.enabled);
 
 // Game mode enumeration for state machine
 enum class GameMode
@@ -79,6 +81,7 @@ struct GameState
   int splashIndex;
   FacingDirection facing;
   uint8_t currentScreen;
+  bool winJinglePlayed;
 };
 
 // Runtime state lives in one container for easier maintenance.
@@ -91,8 +94,16 @@ GameState game = {
     28,
     6,
     FacingDirection::Down,
-    0 // currentScreen
+    0,    // currentScreen
+    false // winJinglePlayed
 };
+
+  const uint16_t winJingle[] PROGMEM = {
+    NOTE_C5, 90,
+    NOTE_E5, 90,
+    NOTE_G5, 120,
+    NOTE_C6, 240,
+    TONES_END};
 
 // Single playfield config (one bounded area, shared by all screens)
 const LevelConfig level = {16, 112, 16, 48, 32, 24};
@@ -478,6 +489,7 @@ void startGame()
   game.facing = FacingDirection::Down;
   game.player.isHuman = true;
   game.player.isArmed = false;
+  game.winJinglePlayed = false;
   game.inventory = {false, false, false};
   resetItems();
   restrictPlayerPosition();
@@ -902,6 +914,12 @@ void handleWinScreen()
   if (tryReturnToMenu())
   {
     return;
+  }
+
+  if (!game.winJinglePlayed)
+  {
+    sound.tones(winJingle);
+    game.winJinglePlayed = true;
   }
 
   arduboy.setCursor(22, 28);

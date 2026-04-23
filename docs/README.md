@@ -15,6 +15,7 @@ Guide d'installation et workflow Linux/Arduboy: [DEV_SETUP.md](DEV_SETUP.md)
 * Une clé (ramassable) <img src="./img/key.png">
 * Des points de départ <img src="./img/input.png">
 * Une porte de sortie <img src="./img/output.png">
+* Un jingle de victoire lors de la liberation (ecran "You are free !")
 * Menu principal (Play / Help / Credits)
 * Écran d’aide avec les contrôles
 * Écran crédits (galerie de sprites)
@@ -30,7 +31,7 @@ Guide d'installation et workflow Linux/Arduboy: [DEV_SETUP.md](DEV_SETUP.md)
 * Déplacement aléatoire du Minotaure
 * Résumé du mythe au démarrage (peut être passé)
 * Choix de la taille du labyrinthe (petit 2×2 / normal 3×3 / grand 4×4)
-* Son
+* Musique et effets sonores etendus (hors jingle de victoire)
 * LED radar (bleu épée, vert ariane, rouge clef)
 * Image de fin (Thésée tuant le Minotaure)
 * Téléportation aux bords de la carte
