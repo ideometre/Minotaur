@@ -4,33 +4,38 @@
 Arduboy2 arduboy;
 
 // Game mode enumeration for state machine
-enum class GameMode {
+enum class GameMode
+{
   Menu,
   Help,
   Splash,
   Game
 };
 
-enum class MenuOption {
+enum class MenuOption
+{
   Play,
   Help,
   Credits
 };
 
 // Player state tracking
-struct PlayerState {
+struct PlayerState
+{
   bool isHuman;
   bool is_armed;
 };
 
-enum class FacingDirection {
+enum class FacingDirection
+{
   Left,
   Right,
   Up,
   Down
 };
 
-struct LevelConfig {
+struct LevelConfig
+{
   int left;
   int right;
   int top;
@@ -39,26 +44,31 @@ struct LevelConfig {
   int spawnY;
 };
 
-enum class ItemType {
+enum class ItemType
+{
   Sword,
   String,
   Key
 };
 
-struct WorldItem {
+struct WorldItem
+{
   ItemType type;
+  uint8_t screen; // which of the SCREEN_COUNT screens this item lives on
   int x;
   int y;
   bool collected;
 };
 
-struct InventoryState {
+struct InventoryState
+{
   bool hasSword;
   bool hasString;
   bool hasKey;
 };
 
-struct GameState {
+struct GameState
+{
   GameMode mode;
   PlayerState player;
   InventoryState inventory;
@@ -68,48 +78,61 @@ struct GameState {
   int splashIndex;
   FacingDirection facing;
   uint8_t currentLevel;
+  uint8_t currentScreen;
 };
 
 // Runtime state lives in one container for easier maintenance.
 GameState game = {
-  GameMode::Menu,
-  {true, false},
-  {false, false, false},
-  16,
-  16,
-  28,
-  6,
-  FacingDirection::Down,
-  0
+    GameMode::Menu,
+    {true, false},
+    {false, false, false},
+    16,
+    16,
+    28,
+    6,
+    FacingDirection::Down,
+    0, // currentLevel
+    0  // currentScreen
 };
 
 // Aliases keep existing logic readable while still centralizing state.
-GameMode& current_mode = game.mode;
-PlayerState& player = game.player;
-InventoryState& inventory = game.inventory;
-int& playerx = game.playerX;
-int& playery = game.playerY;
-int& select_pos = game.menuCursorY;
-int& splash = game.splashIndex;
-FacingDirection& playerFacing = game.facing;
-uint8_t& current_level = game.currentLevel;
+GameMode &current_mode = game.mode;
+PlayerState &player = game.player;
+InventoryState &inventory = game.inventory;
+int &playerx = game.playerX;
+int &playery = game.playerY;
+int &select_pos = game.menuCursorY;
+int &splash = game.splashIndex;
+FacingDirection &playerFacing = game.facing;
+uint8_t &current_level = game.currentLevel;
+uint8_t &current_screen = game.currentScreen;
 
 constexpr uint8_t LEVEL_COUNT = 3;
 const LevelConfig levels[LEVEL_COUNT] = {
-  {0, 128, 0, 64, 16, 16},
-  {16, 112, 16, 48, 24, 24},
-  {8, 120, 8, 56, 56, 24}
-};
+    {0, 128, 0, 64, 16, 16},
+    {16, 112, 16, 48, 24, 24},
+    {8, 120, 8, 56, 56, 24}};
 WorldItem levelItems[3] = {
-  {ItemType::Sword, 32, 16, false},
-  {ItemType::String, 64, 16, false},
-  {ItemType::Key, 80, 32, false}
-};
+    {ItemType::Sword, 0, 32, 16, false},
+    {ItemType::String, 1, 64, 16, false},
+    {ItemType::Key, 2, 80, 32, false}};
 
 // Collision boundaries (playable area)
 constexpr int PLAYER_WIDTH = 16;
 constexpr int PLAYER_HEIGHT = 16;
 constexpr int TILE_SIZE = 16;
+
+// Screen grid: 2×2 rooms navigable by walking to the edge
+constexpr uint8_t SCREEN_COLS = 2;
+constexpr uint8_t SCREEN_ROWS = 2;
+constexpr uint8_t SCREEN_COUNT = SCREEN_COLS * SCREEN_ROWS;
+
+// Background tile per [level][screen] — gives each room a distinct look
+const uint8_t *const screenTiles[3][SCREEN_COUNT] = {
+    {empty, straight, dot, empty},
+    {straight, dot, empty, straight},
+    {dot, empty, straight, dot},
+};
 
 // Menu layout constants
 constexpr int MENU_CURSOR_X = 48;
@@ -133,101 +156,129 @@ constexpr int HUD_ITEMS_Y = 56;
 
 // Splash screen configuration
 constexpr uint8_t SPLASH_COUNT = 7;
-const uint8_t* const splashScreens[SPLASH_COUNT] = {
-  mx_0,
-  mx_1,
-  mx_2,
-  mx_3,
-  mx_4,
-  mx_5,
-  mx_6
-};
+const uint8_t *const splashScreens[SPLASH_COUNT] = {
+    mx_0,
+    mx_1,
+    mx_2,
+    mx_3,
+    mx_4,
+    mx_5,
+    mx_6};
 
 // Collision detection functions
-bool canMoveTo(int x, int y) {
-  const LevelConfig& level = levels[current_level];
+bool canMoveTo(int x, int y)
+{
+  const LevelConfig &level = levels[current_level];
   return x >= level.left &&
          x + PLAYER_WIDTH <= level.right &&
          y >= level.top &&
          y + PLAYER_HEIGHT <= level.bottom;
 }
 
-bool rectanglesOverlap(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2) {
+bool rectanglesOverlap(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
+{
   return x1 < x2 + w2 &&
          x1 + w1 > x2 &&
          y1 < y2 + h2 &&
          y1 + h1 > y2;
 }
 
-const uint8_t* spriteForItem(ItemType type) {
-  if (type == ItemType::Sword) return sword;
-  if (type == ItemType::String) return string;
+const uint8_t *spriteForItem(ItemType type)
+{
+  if (type == ItemType::Sword)
+    return sword;
+  if (type == ItemType::String)
+    return string;
   return key;
 }
 
-void setInventoryItem(ItemType type, bool value) {
-  if (type == ItemType::Sword) inventory.hasSword = value;
-  else if (type == ItemType::String) inventory.hasString = value;
-  else inventory.hasKey = value;
+void setInventoryItem(ItemType type, bool value)
+{
+  if (type == ItemType::Sword)
+    inventory.hasSword = value;
+  else if (type == ItemType::String)
+    inventory.hasString = value;
+  else
+    inventory.hasKey = value;
 }
 
-void resetLevelItems() {
-  if (current_level == 0) {
-    levelItems[0] = {ItemType::Sword, 32, 16, false};
-    levelItems[1] = {ItemType::String, 64, 16, false};
-    levelItems[2] = {ItemType::Key, 80, 32, false};
+void resetLevelItems()
+{
+  if (current_level == 0)
+  {
+    levelItems[0] = {ItemType::Sword, 0, 32, 16, false};
+    levelItems[1] = {ItemType::String, 1, 64, 16, false};
+    levelItems[2] = {ItemType::Key, 2, 80, 32, false};
   }
-  else if (current_level == 1) {
-    levelItems[0] = {ItemType::Sword, 80, 16, false};
-    levelItems[1] = {ItemType::String, 32, 32, false};
-    levelItems[2] = {ItemType::Key, 48, 16, false};
+  else if (current_level == 1)
+  {
+    levelItems[0] = {ItemType::Sword, 1, 80, 16, false};
+    levelItems[1] = {ItemType::String, 0, 32, 32, false};
+    levelItems[2] = {ItemType::Key, 3, 48, 16, false};
   }
-  else {
-    levelItems[0] = {ItemType::Sword, 16, 32, false};
-    levelItems[1] = {ItemType::String, 64, 32, false};
-    levelItems[2] = {ItemType::Key, 96, 16, false};
+  else
+  {
+    levelItems[0] = {ItemType::Sword, 2, 16, 32, false};
+    levelItems[1] = {ItemType::String, 3, 64, 32, false};
+    levelItems[2] = {ItemType::Key, 1, 96, 16, false};
   }
 }
 
-void collectItemsAtPlayerPosition() {
+void collectItemsAtPlayerPosition()
+{
   // In minotaur form, items are ignored and can be crossed without pickup.
-  if (!player.isHuman) {
+  if (!player.isHuman)
+  {
     return;
   }
 
-  for (uint8_t i = 0; i < 3; ++i) {
-    if (levelItems[i].collected) {
+  for (uint8_t i = 0; i < 3; ++i)
+  {
+    if (levelItems[i].collected || levelItems[i].screen != current_screen)
+    {
       continue;
     }
     if (rectanglesOverlap(playerx, playery, PLAYER_WIDTH, PLAYER_HEIGHT,
-                          levelItems[i].x, levelItems[i].y, PLAYER_WIDTH, PLAYER_HEIGHT)) {
+                          levelItems[i].x, levelItems[i].y, PLAYER_WIDTH, PLAYER_HEIGHT))
+    {
       levelItems[i].collected = true;
       setInventoryItem(levelItems[i].type, true);
-      if (levelItems[i].type == ItemType::Sword) {
+      if (levelItems[i].type == ItemType::Sword)
+      {
         player.is_armed = true;
       }
     }
   }
 }
 
-void drawLevelItems() {
-  for (uint8_t i = 0; i < 3; ++i) {
-    if (!levelItems[i].collected) {
+void drawLevelItems()
+{
+  for (uint8_t i = 0; i < 3; ++i)
+  {
+    if (!levelItems[i].collected && levelItems[i].screen == current_screen)
+    {
       Sprites::drawOverwrite(levelItems[i].x, levelItems[i].y, spriteForItem(levelItems[i].type), 0);
     }
   }
 }
 
-void restrictPlayerPosition() {
-  const LevelConfig& level = levels[current_level];
-  if (playerx < level.left) playerx = level.left;
-  if (playerx + PLAYER_WIDTH > level.right) playerx = level.right - PLAYER_WIDTH;
-  if (playery < level.top) playery = level.top;
-  if (playery + PLAYER_HEIGHT > level.bottom) playery = level.bottom - PLAYER_HEIGHT;
+void restrictPlayerPosition()
+{
+  const LevelConfig &level = levels[current_level];
+  if (playerx < level.left)
+    playerx = level.left;
+  if (playerx + PLAYER_WIDTH > level.right)
+    playerx = level.right - PLAYER_WIDTH;
+  if (playery < level.top)
+    playery = level.top;
+  if (playery + PLAYER_HEIGHT > level.bottom)
+    playery = level.bottom - PLAYER_HEIGHT;
 }
 
-void startLevel(uint8_t levelIndex) {
+void startLevel(uint8_t levelIndex)
+{
   current_level = levelIndex % LEVEL_COUNT;
+  current_screen = 0;
   playerx = levels[current_level].spawnX;
   playery = levels[current_level].spawnY;
   playerFacing = FacingDirection::Down;
@@ -238,39 +289,88 @@ void startLevel(uint8_t levelIndex) {
   restrictPlayerPosition();
 }
 
-bool tryReturnToMenu() {
-  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON)) {
+bool tryReturnToMenu()
+{
+  if (arduboy.pressed(A_BUTTON) && arduboy.pressed(B_BUTTON))
+  {
     current_mode = GameMode::Menu;
     return true;
   }
   return false;
 }
 
-const uint8_t* tileForCurrentLevel() {
-  if (current_level == 1) return straight;
-  if (current_level == 2) return dot;
-  return empty;
+// Attempt to transition to an adjacent screen in the given direction.
+// If no adjacent screen exists, the wall simply blocks movement.
+void checkScreenTransition(FacingDirection dir)
+{
+  const LevelConfig &level = levels[current_level];
+  uint8_t col = current_screen % SCREEN_COLS;
+  uint8_t row = current_screen / SCREEN_COLS;
+
+  switch (dir)
+  {
+  case FacingDirection::Right:
+    if (col < SCREEN_COLS - 1)
+    {
+      current_screen++;
+      playerx = level.left;
+    }
+    break;
+  case FacingDirection::Left:
+    if (col > 0)
+    {
+      current_screen--;
+      playerx = level.right - PLAYER_WIDTH;
+    }
+    break;
+  case FacingDirection::Down:
+    if (row < SCREEN_ROWS - 1)
+    {
+      current_screen += SCREEN_COLS;
+      playery = level.top;
+    }
+    break;
+  case FacingDirection::Up:
+    if (row > 0)
+    {
+      current_screen -= SCREEN_COLS;
+      playery = level.bottom - PLAYER_HEIGHT;
+    }
+    break;
+  }
 }
 
-void drawGameplayBackground() {
-  const uint8_t* backgroundTile = tileForCurrentLevel();
-  for (int x = PLAYFIELD_X_START; x < PLAYFIELD_X_END; x += TILE_SIZE) {
-    for (int y = PLAYFIELD_Y_START; y < PLAYFIELD_Y_END; y += TILE_SIZE) {
+const uint8_t *tileForCurrentScreen()
+{
+  return screenTiles[current_level][current_screen];
+}
+
+void drawGameplayBackground()
+{
+  const uint8_t *backgroundTile = tileForCurrentScreen();
+  for (int x = PLAYFIELD_X_START; x < PLAYFIELD_X_END; x += TILE_SIZE)
+  {
+    for (int y = PLAYFIELD_Y_START; y < PLAYFIELD_Y_END; y += TILE_SIZE)
+    {
       Sprites::drawOverwrite(x, y, backgroundTile, 0);
     }
   }
 }
 
-void handlePlayerStateInput() {
-  if (arduboy.justPressed(A_BUTTON) && inventory.hasSword) {
+void handlePlayerStateInput()
+{
+  if (arduboy.justPressed(A_BUTTON) && inventory.hasSword)
+  {
     player.is_armed = !player.is_armed;
   }
-  else if (arduboy.justPressed(B_BUTTON)) {
+  else if (arduboy.justPressed(B_BUTTON))
+  {
     player.isHuman = !player.isHuman;
   }
 }
 
-void drawGameplayHud() {
+void drawGameplayHud()
+{
   // Draw side borders
   Sprites::drawOverwrite(0, 0, cross, 0);
   Sprites::drawOverwrite(0, 16, straight, 0);
@@ -298,15 +398,18 @@ void drawGameplayHud() {
   Sprites::drawOverwrite(96, 48, input, 0);
 
   // Inventory labels
-  if (inventory.hasSword) {
+  if (inventory.hasSword)
+  {
     arduboy.setCursor(HUD_SWORD_X, HUD_ITEMS_Y);
     arduboy.print("S");
   }
-  if (inventory.hasString) {
+  if (inventory.hasString)
+  {
     arduboy.setCursor(HUD_STRING_X, HUD_ITEMS_Y);
     arduboy.print("Y");
   }
-  if (inventory.hasKey) {
+  if (inventory.hasKey)
+  {
     arduboy.setCursor(HUD_KEY_X, HUD_ITEMS_Y);
     arduboy.print("K");
   }
@@ -314,73 +417,118 @@ void drawGameplayHud() {
   arduboy.setCursor(HUD_LEVEL_X, HUD_LEVEL_Y);
   arduboy.print("L");
   arduboy.print(current_level + 1);
+
+  // Mini 2x2 screen map in the bottom-left corner (over cross sprite at 0,48)
+  // Each cell is 3x3 px, step 5px: fits within x=2..9, y=49..56
+  for (uint8_t r = 0; r < SCREEN_ROWS; r++)
+  {
+    for (uint8_t c = 0; c < SCREEN_COLS; c++)
+    {
+      int mx = 9 + c * 5;
+      int my = 49 + r * 5;
+      if ((r * SCREEN_COLS + c) == current_screen)
+      {
+        arduboy.fillRect(mx, my, 3, 3, WHITE);
+      }
+      else
+      {
+        arduboy.drawRect(mx, my, 3, 3, WHITE);
+      }
+    }
+  }
 }
 
-void handlePlayerMovement() {
-  if (arduboy.pressed(LEFT_BUTTON)) {
+void handlePlayerMovement()
+{
+  if (arduboy.pressed(LEFT_BUTTON))
+  {
     playerFacing = FacingDirection::Left;
     int newX = playerx - 1;
-    if (canMoveTo(newX, playery)) playerx = newX;
+    if (canMoveTo(newX, playery))
+      playerx = newX;
+    else
+      checkScreenTransition(FacingDirection::Left);
   }
-  if (arduboy.pressed(RIGHT_BUTTON)) {
+  if (arduboy.pressed(RIGHT_BUTTON))
+  {
     playerFacing = FacingDirection::Right;
     int newX = playerx + 1;
-    if (canMoveTo(newX, playery)) playerx = newX;
+    if (canMoveTo(newX, playery))
+      playerx = newX;
+    else
+      checkScreenTransition(FacingDirection::Right);
   }
-  if (arduboy.pressed(UP_BUTTON)) {
+  if (arduboy.pressed(UP_BUTTON))
+  {
     playerFacing = FacingDirection::Up;
     int newY = playery - 1;
-    if (canMoveTo(playerx, newY)) playery = newY;
+    if (canMoveTo(playerx, newY))
+      playery = newY;
+    else
+      checkScreenTransition(FacingDirection::Up);
   }
-  if (arduboy.pressed(DOWN_BUTTON)) {
+  if (arduboy.pressed(DOWN_BUTTON))
+  {
     playerFacing = FacingDirection::Down;
     int newY = playery + 1;
-    if (canMoveTo(playerx, newY)) playery = newY;
+    if (canMoveTo(playerx, newY))
+      playery = newY;
+    else
+      checkScreenTransition(FacingDirection::Down);
   }
 }
 
-MenuOption selectedMenuOption() {
+MenuOption selectedMenuOption()
+{
   uint8_t optionIndex = (select_pos - MENU_CURSOR_TOP) / MENU_CURSOR_STEP;
-  if (optionIndex == 0) {
+  if (optionIndex == 0)
+  {
     return MenuOption::Play;
   }
-  if (optionIndex == 1) {
+  if (optionIndex == 1)
+  {
     return MenuOption::Help;
   }
   return MenuOption::Credits;
 }
 
-void setup() {
+void setup()
+{
   arduboy.begin();
   arduboy.setFrameRate(60);
   arduboy.clear();
 }
 
-void loop() {
-  if (!arduboy.nextFrame()) {
+void loop()
+{
+  if (!arduboy.nextFrame())
+  {
     return;
   }
   arduboy.clear();
   arduboy.pollButtons();
 
-  switch (current_mode) {
-    case GameMode::Help:
-      handleHelpScreen();
-      break;
-    case GameMode::Splash:
-      handleSplashScreen();
-      break;
-    case GameMode::Game:
-      handleGameplay();
-      break;
-    case GameMode::Menu:
-      handleMenu();
-      break;
+  switch (current_mode)
+  {
+  case GameMode::Help:
+    handleHelpScreen();
+    break;
+  case GameMode::Splash:
+    handleSplashScreen();
+    break;
+  case GameMode::Game:
+    handleGameplay();
+    break;
+  case GameMode::Menu:
+    handleMenu();
+    break;
   }
 }
 
-void handleHelpScreen() {
-  if (tryReturnToMenu()) {
+void handleHelpScreen()
+{
+  if (tryReturnToMenu())
+  {
     return;
   }
 
@@ -399,22 +547,27 @@ void handleHelpScreen() {
   arduboy.display();
 }
 
-void handleSplashScreen() {
-  if (tryReturnToMenu()) {
+void handleSplashScreen()
+{
+  if (tryReturnToMenu())
+  {
     return;
   }
 
   Sprites::drawOverwrite(0, 0, splashScreens[splash], 0);
 
-  if (arduboy.justPressed(B_BUTTON)) {
+  if (arduboy.justPressed(B_BUTTON))
+  {
     splash = (splash + 1) % SPLASH_COUNT;
   }
 
   arduboy.display();
 }
 
-void handleGameplay() {
-  if (tryReturnToMenu()) {
+void handleGameplay()
+{
+  if (tryReturnToMenu())
+  {
     return;
   }
 
@@ -433,27 +586,36 @@ void handleGameplay() {
   arduboy.display();
 }
 
-void handleMenu() {
-  if (arduboy.justPressed(UP_BUTTON)) {
-    if (select_pos > MENU_CURSOR_TOP) {
+void handleMenu()
+{
+  if (arduboy.justPressed(UP_BUTTON))
+  {
+    if (select_pos > MENU_CURSOR_TOP)
+    {
       select_pos = select_pos - MENU_CURSOR_STEP;
     }
   }
-  else if (arduboy.justPressed(DOWN_BUTTON)) {
-    if (select_pos < MENU_CURSOR_BOTTOM) {
+  else if (arduboy.justPressed(DOWN_BUTTON))
+  {
+    if (select_pos < MENU_CURSOR_BOTTOM)
+    {
       select_pos = select_pos + MENU_CURSOR_STEP;
     }
   }
-  else if (arduboy.justPressed(A_BUTTON)) {
+  else if (arduboy.justPressed(A_BUTTON))
+  {
     MenuOption option = selectedMenuOption();
-    if (option == MenuOption::Play) {
+    if (option == MenuOption::Play)
+    {
       startLevel(0);
       current_mode = GameMode::Game;
     }
-    else if (option == MenuOption::Help) {
+    else if (option == MenuOption::Help)
+    {
       current_mode = GameMode::Help;
     }
-    else if (option == MenuOption::Credits) {
+    else if (option == MenuOption::Credits)
+    {
       splash = 0;
       current_mode = GameMode::Splash;
     }
@@ -464,26 +626,42 @@ void handleMenu() {
   arduboy.display();
 }
 
-void drawPlayerSprite() {
-  const uint8_t* sprite = nullptr;
+void drawPlayerSprite()
+{
+  const uint8_t *sprite = nullptr;
 
-  if (!player.isHuman) {
-    if (playerFacing == FacingDirection::Left) sprite = minleft;
-    else if (playerFacing == FacingDirection::Right) sprite = minright;
-    else if (playerFacing == FacingDirection::Up) sprite = minback;
-    else sprite = minfront;
+  if (!player.isHuman)
+  {
+    if (playerFacing == FacingDirection::Left)
+      sprite = minleft;
+    else if (playerFacing == FacingDirection::Right)
+      sprite = minright;
+    else if (playerFacing == FacingDirection::Up)
+      sprite = minback;
+    else
+      sprite = minfront;
   }
-  else if (player.is_armed) {
-    if (playerFacing == FacingDirection::Left) sprite = armed_left;
-    else if (playerFacing == FacingDirection::Right) sprite = armed_right;
-    else if (playerFacing == FacingDirection::Up) sprite = armed_back;
-    else sprite = armed_front;
+  else if (player.is_armed)
+  {
+    if (playerFacing == FacingDirection::Left)
+      sprite = armed_left;
+    else if (playerFacing == FacingDirection::Right)
+      sprite = armed_right;
+    else if (playerFacing == FacingDirection::Up)
+      sprite = armed_back;
+    else
+      sprite = armed_front;
   }
-  else {
-    if (playerFacing == FacingDirection::Left) sprite = left;
-    else if (playerFacing == FacingDirection::Right) sprite = right;
-    else if (playerFacing == FacingDirection::Up) sprite = back;
-    else sprite = front;
+  else
+  {
+    if (playerFacing == FacingDirection::Left)
+      sprite = left;
+    else if (playerFacing == FacingDirection::Right)
+      sprite = right;
+    else if (playerFacing == FacingDirection::Up)
+      sprite = back;
+    else
+      sprite = front;
   }
 
   Sprites::drawOverwrite(playerx, playery, sprite, 0);
