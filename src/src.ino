@@ -115,28 +115,17 @@ WorldItem levelItems[3] = {
 // Collision boundaries (playable area)
 constexpr int PLAYER_WIDTH = 16;
 constexpr int PLAYER_HEIGHT = 16;
-constexpr int TILE_SIZE = 16;
-
+constexpr int WALL_THICKNESS = 16;
 // Screen grid: 2×2 rooms navigable by walking to the edge
 constexpr uint8_t SCREEN_COLS = 2;
 constexpr uint8_t SCREEN_ROWS = 2;
 constexpr uint8_t SCREEN_COUNT = SCREEN_COLS * SCREEN_ROWS;
-
-// Background tile per screen — gives each room a distinct look
-const uint8_t *const screenTiles[SCREEN_COUNT] = {
-    empty, straight, dot, straight};
 
 // Menu layout constants
 constexpr int MENU_CURSOR_X = 48;
 constexpr int MENU_CURSOR_TOP = 28;
 constexpr int MENU_CURSOR_BOTTOM = 44;
 constexpr int MENU_CURSOR_STEP = 8;
-
-// Gameplay tile area constants
-constexpr int PLAYFIELD_X_START = 16;
-constexpr int PLAYFIELD_X_END = 112;
-constexpr int PLAYFIELD_Y_START = 16;
-constexpr int PLAYFIELD_Y_END = 48;
 
 // Bottom HUD constants
 constexpr int HUD_SWORD_X = 16;
@@ -162,13 +151,20 @@ const uint8_t *const splashScreens[SPLASH_COUNT] = {
     mx_5,
     mx_6};
 
+bool hasAdjacentScreen(FacingDirection dir);
+
 // Collision detection functions
 bool canMoveTo(int x, int y)
 {
-  return x >= level.left &&
-         x + PLAYER_WIDTH <= level.right &&
-         y >= level.top &&
-         y + PLAYER_HEIGHT <= level.bottom;
+  int leftBound = hasAdjacentScreen(FacingDirection::Left) ? 0 : WALL_THICKNESS;
+  int rightBound = hasAdjacentScreen(FacingDirection::Right) ? WIDTH : WIDTH - WALL_THICKNESS;
+  int topBound = hasAdjacentScreen(FacingDirection::Up) ? 0 : WALL_THICKNESS;
+  int bottomBound = hasAdjacentScreen(FacingDirection::Down) ? HEIGHT : HEIGHT - WALL_THICKNESS;
+
+  return x >= leftBound &&
+         x + PLAYER_WIDTH <= rightBound &&
+         y >= topBound &&
+         y + PLAYER_HEIGHT <= bottomBound;
 }
 
 bool rectanglesOverlap(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
@@ -245,14 +241,19 @@ void drawLevelItems()
 
 void restrictPlayerPosition()
 {
-  if (playerx < level.left)
-    playerx = level.left;
-  if (playerx + PLAYER_WIDTH > level.right)
-    playerx = level.right - PLAYER_WIDTH;
-  if (playery < level.top)
-    playery = level.top;
-  if (playery + PLAYER_HEIGHT > level.bottom)
-    playery = level.bottom - PLAYER_HEIGHT;
+  int leftBound = hasAdjacentScreen(FacingDirection::Left) ? 0 : WALL_THICKNESS;
+  int rightBound = hasAdjacentScreen(FacingDirection::Right) ? WIDTH : WIDTH - WALL_THICKNESS;
+  int topBound = hasAdjacentScreen(FacingDirection::Up) ? 0 : WALL_THICKNESS;
+  int bottomBound = hasAdjacentScreen(FacingDirection::Down) ? HEIGHT : HEIGHT - WALL_THICKNESS;
+
+  if (playerx < leftBound)
+    playerx = leftBound;
+  if (playerx + PLAYER_WIDTH > rightBound)
+    playerx = rightBound - PLAYER_WIDTH;
+  if (playery < topBound)
+    playery = topBound;
+  if (playery + PLAYER_HEIGHT > bottomBound)
+    playery = bottomBound - PLAYER_HEIGHT;
 }
 
 void startGame()
@@ -278,9 +279,7 @@ bool tryReturnToMenu()
   return false;
 }
 
-// Attempt to transition to an adjacent screen in the given direction.
-// If no adjacent screen exists, the wall simply blocks movement.
-void checkScreenTransition(FacingDirection dir)
+bool hasAdjacentScreen(FacingDirection dir)
 {
   uint8_t col = current_screen % SCREEN_COLS;
   uint8_t row = current_screen / SCREEN_COLS;
@@ -288,51 +287,209 @@ void checkScreenTransition(FacingDirection dir)
   switch (dir)
   {
   case FacingDirection::Right:
-    if (col < SCREEN_COLS - 1)
-    {
-      current_screen++;
-      playerx = level.left;
-    }
-    break;
+    return col < SCREEN_COLS - 1;
   case FacingDirection::Left:
-    if (col > 0)
-    {
-      current_screen--;
-      playerx = level.right - PLAYER_WIDTH;
-    }
-    break;
+    return col > 0;
   case FacingDirection::Down:
-    if (row < SCREEN_ROWS - 1)
-    {
-      current_screen += SCREEN_COLS;
-      playery = level.top;
-    }
-    break;
+    return row < SCREEN_ROWS - 1;
   case FacingDirection::Up:
-    if (row > 0)
+    return row > 0;
+  }
+
+  return false;
+}
+
+bool sprite16PixelAt(const uint8_t *sprite, uint8_t px, uint8_t py)
+{
+  uint8_t w = pgm_read_byte(sprite);
+  uint8_t byteValue = pgm_read_byte(sprite + 2 + px + (py / 8) * w);
+  return (byteValue & (1 << (py & 7))) != 0;
+}
+
+// Draw a 16x16 sprite with overwrite semantics and 90-degree rotations.
+// rotation: 0=0°, 1=90° CW, 2=180°, 3=270° CW.
+void drawRotated16Overwrite(int x, int y, const uint8_t *sprite, uint8_t rotation)
+{
+  arduboy.fillRect(x, y, 16, 16, BLACK);
+
+  for (uint8_t dy = 0; dy < 16; dy++)
+  {
+    for (uint8_t dx = 0; dx < 16; dx++)
     {
-      current_screen -= SCREEN_COLS;
-      playery = level.bottom - PLAYER_HEIGHT;
+      uint8_t sx = dx;
+      uint8_t sy = dy;
+
+      if (rotation == 1)
+      {
+        sx = dy;
+        sy = 15 - dx;
+      }
+      else if (rotation == 2)
+      {
+        sx = 15 - dx;
+        sy = 15 - dy;
+      }
+      else if (rotation == 3)
+      {
+        sx = 15 - dy;
+        sy = dx;
+      }
+
+      if (sprite16PixelAt(sprite, sx, sy))
+      {
+        arduboy.drawPixel(x + dx, y + dy, WHITE);
+      }
     }
-    break;
   }
 }
 
-const uint8_t *tileForCurrentScreen()
+void drawOuterLabyrinthWalls()
 {
-  return screenTiles[current_screen];
+  // Draw only the external walls of the global 2x2 labyrinth using wall sprites.
+  if (!hasAdjacentScreen(FacingDirection::Left))
+  {
+    for (int y = 0; y < HEIGHT; y += 16)
+    {
+      drawRotated16Overwrite(0, y, straight, 0);
+    }
+  }
+  else
+  {
+    // Transition edge: keep markers only where this side touches outer borders.
+    if (!hasAdjacentScreen(FacingDirection::Up))
+    {
+      drawRotated16Overwrite(0, 0, straight, 1);
+    }
+    if (!hasAdjacentScreen(FacingDirection::Down))
+    {
+      drawRotated16Overwrite(0, HEIGHT - 16, straight, 1);
+    }
+  }
+
+  if (!hasAdjacentScreen(FacingDirection::Right))
+  {
+    for (int y = 0; y < HEIGHT; y += 16)
+    {
+      drawRotated16Overwrite(WIDTH - 16, y, straight, 0);
+    }
+  }
+  else
+  {
+    // Transition edge: keep markers only where this side touches outer borders.
+    if (!hasAdjacentScreen(FacingDirection::Up))
+    {
+      drawRotated16Overwrite(WIDTH - 16, 0, straight, 1);
+    }
+    if (!hasAdjacentScreen(FacingDirection::Down))
+    {
+      drawRotated16Overwrite(WIDTH - 16, HEIGHT - 16, straight, 1);
+    }
+  }
+
+  if (!hasAdjacentScreen(FacingDirection::Up))
+  {
+    for (int x = level.left; x <= level.right - 16; x += 16)
+    {
+      drawRotated16Overwrite(x, 0, straight, 1);
+    }
+  }
+  else
+  {
+    // Transition edge: keep markers only where this side touches outer borders.
+    if (!hasAdjacentScreen(FacingDirection::Left))
+    {
+      drawRotated16Overwrite(0, 0, straight, 0);
+    }
+    if (!hasAdjacentScreen(FacingDirection::Right))
+    {
+      drawRotated16Overwrite(WIDTH - 16, 0, straight, 0);
+    }
+  }
+
+  if (!hasAdjacentScreen(FacingDirection::Down))
+  {
+    for (int x = level.left; x <= level.right - 16; x += 16)
+    {
+      drawRotated16Overwrite(x, HEIGHT - 16, straight, 3);
+    }
+  }
+  else
+  {
+    // Transition edge: keep markers only where this side touches outer borders.
+    if (!hasAdjacentScreen(FacingDirection::Left))
+    {
+      drawRotated16Overwrite(0, HEIGHT - 16, straight, 0);
+    }
+    if (!hasAdjacentScreen(FacingDirection::Right))
+    {
+      drawRotated16Overwrite(WIDTH - 16, HEIGHT - 16, straight, 0);
+    }
+  }
+
+  // Corner caps
+  if (!hasAdjacentScreen(FacingDirection::Left) && !hasAdjacentScreen(FacingDirection::Up))
+  {
+    drawRotated16Overwrite(0, 0, angle, 0);
+  }
+  if (!hasAdjacentScreen(FacingDirection::Right) && !hasAdjacentScreen(FacingDirection::Up))
+  {
+    drawRotated16Overwrite(WIDTH - 16, 0, angle, 1);
+  }
+  if (!hasAdjacentScreen(FacingDirection::Left) && !hasAdjacentScreen(FacingDirection::Down))
+  {
+    drawRotated16Overwrite(0, HEIGHT - 16, angle, 3);
+  }
+  if (!hasAdjacentScreen(FacingDirection::Right) && !hasAdjacentScreen(FacingDirection::Down))
+  {
+    drawRotated16Overwrite(WIDTH - 16, HEIGHT - 16, angle, 2);
+  }
+}
+
+// Attempt to transition to an adjacent screen in the given direction.
+// If no adjacent screen exists, the wall simply blocks movement.
+void checkScreenTransition(FacingDirection dir)
+{
+  uint8_t col = current_screen % SCREEN_COLS;
+
+  switch (dir)
+  {
+  case FacingDirection::Right:
+    if (hasAdjacentScreen(FacingDirection::Right))
+    {
+      current_screen++;
+      playerx = 0;
+    }
+    break;
+  case FacingDirection::Left:
+    if (hasAdjacentScreen(FacingDirection::Left))
+    {
+      current_screen--;
+      playerx = WIDTH - PLAYER_WIDTH;
+    }
+    break;
+  case FacingDirection::Down:
+    if (hasAdjacentScreen(FacingDirection::Down))
+    {
+      current_screen += SCREEN_COLS;
+      playery = 0;
+    }
+    break;
+  case FacingDirection::Up:
+    if (hasAdjacentScreen(FacingDirection::Up))
+    {
+      current_screen -= SCREEN_COLS;
+      playery = HEIGHT - PLAYER_HEIGHT;
+    }
+    break;
+  }
+
+  restrictPlayerPosition();
 }
 
 void drawGameplayBackground()
 {
-  const uint8_t *backgroundTile = tileForCurrentScreen();
-  for (int x = PLAYFIELD_X_START; x < PLAYFIELD_X_END; x += TILE_SIZE)
-  {
-    for (int y = PLAYFIELD_Y_START; y < PLAYFIELD_Y_END; y += TILE_SIZE)
-    {
-      Sprites::drawOverwrite(x, y, backgroundTile, 0);
-    }
-  }
+  // No internal wall sprites: keep only the external labyrinth walls.
+  drawOuterLabyrinthWalls();
 }
 
 void handlePlayerStateInput()
@@ -349,32 +506,6 @@ void handlePlayerStateInput()
 
 void drawGameplayHud()
 {
-  // Draw side borders
-  Sprites::drawOverwrite(0, 0, cross, 0);
-  Sprites::drawOverwrite(0, 16, straight, 0);
-  Sprites::drawOverwrite(0, 32, straight, 0);
-  Sprites::drawOverwrite(0, 48, cross, 0);
-  Sprites::drawOverwrite(112, 0, cross, 0);
-  Sprites::drawOverwrite(112, 16, straight, 0);
-  Sprites::drawOverwrite(112, 32, straight, 0);
-  Sprites::drawOverwrite(112, 48, cross, 0);
-
-  // Top row
-  Sprites::drawOverwrite(16, 0, output, 0);
-  Sprites::drawOverwrite(32, 0, dot, 0);
-  Sprites::drawOverwrite(48, 0, dot, 0);
-  Sprites::drawOverwrite(64, 0, dot, 0);
-  Sprites::drawOverwrite(80, 0, dot, 0);
-  Sprites::drawOverwrite(96, 0, dot, 0);
-
-  // Bottom row
-  Sprites::drawOverwrite(16, 48, dot, 0);
-  Sprites::drawOverwrite(32, 48, dot, 0);
-  Sprites::drawOverwrite(48, 48, dot, 0);
-  Sprites::drawOverwrite(64, 48, dot, 0);
-  Sprites::drawOverwrite(80, 48, dot, 0);
-  Sprites::drawOverwrite(96, 48, input, 0);
-
   // Inventory labels
   if (inventory.hasSword)
   {
