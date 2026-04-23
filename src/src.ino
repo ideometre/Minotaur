@@ -153,18 +153,32 @@ const uint8_t *const splashScreens[SPLASH_COUNT] = {
 
 bool hasAdjacentScreen(FacingDirection dir);
 
+struct MovementBounds
+{
+  int left;
+  int right;
+  int top;
+  int bottom;
+};
+
+MovementBounds getMovementBounds()
+{
+  return {
+      hasAdjacentScreen(FacingDirection::Left) ? 0 : WALL_THICKNESS,
+      hasAdjacentScreen(FacingDirection::Right) ? WIDTH : WIDTH - WALL_THICKNESS,
+      hasAdjacentScreen(FacingDirection::Up) ? 0 : WALL_THICKNESS,
+      hasAdjacentScreen(FacingDirection::Down) ? HEIGHT : HEIGHT - WALL_THICKNESS};
+}
+
 // Collision detection functions
 bool canMoveTo(int x, int y)
 {
-  int leftBound = hasAdjacentScreen(FacingDirection::Left) ? 0 : WALL_THICKNESS;
-  int rightBound = hasAdjacentScreen(FacingDirection::Right) ? WIDTH : WIDTH - WALL_THICKNESS;
-  int topBound = hasAdjacentScreen(FacingDirection::Up) ? 0 : WALL_THICKNESS;
-  int bottomBound = hasAdjacentScreen(FacingDirection::Down) ? HEIGHT : HEIGHT - WALL_THICKNESS;
+  MovementBounds bounds = getMovementBounds();
 
-  return x >= leftBound &&
-         x + PLAYER_WIDTH <= rightBound &&
-         y >= topBound &&
-         y + PLAYER_HEIGHT <= bottomBound;
+  return x >= bounds.left &&
+         x + PLAYER_WIDTH <= bounds.right &&
+         y >= bounds.top &&
+         y + PLAYER_HEIGHT <= bounds.bottom;
 }
 
 bool rectanglesOverlap(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
@@ -241,19 +255,16 @@ void drawLevelItems()
 
 void restrictPlayerPosition()
 {
-  int leftBound = hasAdjacentScreen(FacingDirection::Left) ? 0 : WALL_THICKNESS;
-  int rightBound = hasAdjacentScreen(FacingDirection::Right) ? WIDTH : WIDTH - WALL_THICKNESS;
-  int topBound = hasAdjacentScreen(FacingDirection::Up) ? 0 : WALL_THICKNESS;
-  int bottomBound = hasAdjacentScreen(FacingDirection::Down) ? HEIGHT : HEIGHT - WALL_THICKNESS;
+  MovementBounds bounds = getMovementBounds();
 
-  if (playerx < leftBound)
-    playerx = leftBound;
-  if (playerx + PLAYER_WIDTH > rightBound)
-    playerx = rightBound - PLAYER_WIDTH;
-  if (playery < topBound)
-    playery = topBound;
-  if (playery + PLAYER_HEIGHT > bottomBound)
-    playery = bottomBound - PLAYER_HEIGHT;
+  if (playerx < bounds.left)
+    playerx = bounds.left;
+  if (playerx + PLAYER_WIDTH > bounds.right)
+    playerx = bounds.right - PLAYER_WIDTH;
+  if (playery < bounds.top)
+    playery = bounds.top;
+  if (playery + PLAYER_HEIGHT > bounds.bottom)
+    playery = bounds.bottom - PLAYER_HEIGHT;
 }
 
 void startGame()
@@ -527,6 +538,7 @@ void drawGameplayHud()
 
 void handlePlayerMovement()
 {
+  // Process only one direction per frame to avoid double transitions.
   if (arduboy.pressed(LEFT_BUTTON))
   {
     playerFacing = FacingDirection::Left;
@@ -536,7 +548,7 @@ void handlePlayerMovement()
     else
       checkScreenTransition(FacingDirection::Left);
   }
-  if (arduboy.pressed(RIGHT_BUTTON))
+  else if (arduboy.pressed(RIGHT_BUTTON))
   {
     playerFacing = FacingDirection::Right;
     int newX = playerx + 1;
@@ -545,7 +557,7 @@ void handlePlayerMovement()
     else
       checkScreenTransition(FacingDirection::Right);
   }
-  if (arduboy.pressed(UP_BUTTON))
+  else if (arduboy.pressed(UP_BUTTON))
   {
     playerFacing = FacingDirection::Up;
     int newY = playery - 1;
@@ -554,7 +566,7 @@ void handlePlayerMovement()
     else
       checkScreenTransition(FacingDirection::Up);
   }
-  if (arduboy.pressed(DOWN_BUTTON))
+  else if (arduboy.pressed(DOWN_BUTTON))
   {
     playerFacing = FacingDirection::Down;
     int newY = playery + 1;
