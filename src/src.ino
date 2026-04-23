@@ -77,7 +77,6 @@ struct GameState
   int menuCursorY;
   int splashIndex;
   FacingDirection facing;
-  uint8_t currentLevel;
   uint8_t currentScreen;
 };
 
@@ -91,8 +90,7 @@ GameState game = {
     28,
     6,
     FacingDirection::Down,
-    0, // currentLevel
-    0  // currentScreen
+    0 // currentScreen
 };
 
 // Aliases keep existing logic readable while still centralizing state.
@@ -104,14 +102,11 @@ int &playery = game.playerY;
 int &select_pos = game.menuCursorY;
 int &splash = game.splashIndex;
 FacingDirection &playerFacing = game.facing;
-uint8_t &current_level = game.currentLevel;
 uint8_t &current_screen = game.currentScreen;
 
-constexpr uint8_t LEVEL_COUNT = 3;
-const LevelConfig levels[LEVEL_COUNT] = {
-    {0, 128, 0, 64, 16, 16},
-    {16, 112, 16, 48, 24, 24},
-    {8, 120, 8, 56, 56, 24}};
+// Single playfield config (one bounded area, shared by all screens)
+const LevelConfig level = {16, 112, 16, 48, 32, 24};
+
 WorldItem levelItems[3] = {
     {ItemType::Sword, 0, 32, 16, false},
     {ItemType::String, 1, 64, 16, false},
@@ -127,12 +122,9 @@ constexpr uint8_t SCREEN_COLS = 2;
 constexpr uint8_t SCREEN_ROWS = 2;
 constexpr uint8_t SCREEN_COUNT = SCREEN_COLS * SCREEN_ROWS;
 
-// Background tile per [level][screen] — gives each room a distinct look
-const uint8_t *const screenTiles[3][SCREEN_COUNT] = {
-    {empty, straight, dot, empty},
-    {straight, dot, empty, straight},
-    {dot, empty, straight, dot},
-};
+// Background tile per screen — gives each room a distinct look
+const uint8_t *const screenTiles[SCREEN_COUNT] = {
+    empty, straight, dot, straight};
 
 // Menu layout constants
 constexpr int MENU_CURSOR_X = 48;
@@ -147,8 +139,6 @@ constexpr int PLAYFIELD_Y_START = 16;
 constexpr int PLAYFIELD_Y_END = 48;
 
 // Bottom HUD constants
-constexpr int HUD_LEVEL_X = 2;
-constexpr int HUD_LEVEL_Y = 56;
 constexpr int HUD_SWORD_X = 16;
 constexpr int HUD_STRING_X = 32;
 constexpr int HUD_KEY_X = 48;
@@ -168,7 +158,6 @@ const uint8_t *const splashScreens[SPLASH_COUNT] = {
 // Collision detection functions
 bool canMoveTo(int x, int y)
 {
-  const LevelConfig &level = levels[current_level];
   return x >= level.left &&
          x + PLAYER_WIDTH <= level.right &&
          y >= level.top &&
@@ -202,26 +191,11 @@ void setInventoryItem(ItemType type, bool value)
     inventory.hasKey = value;
 }
 
-void resetLevelItems()
+void resetItems()
 {
-  if (current_level == 0)
-  {
-    levelItems[0] = {ItemType::Sword, 0, 32, 16, false};
-    levelItems[1] = {ItemType::String, 1, 64, 16, false};
-    levelItems[2] = {ItemType::Key, 2, 80, 32, false};
-  }
-  else if (current_level == 1)
-  {
-    levelItems[0] = {ItemType::Sword, 1, 80, 16, false};
-    levelItems[1] = {ItemType::String, 0, 32, 32, false};
-    levelItems[2] = {ItemType::Key, 3, 48, 16, false};
-  }
-  else
-  {
-    levelItems[0] = {ItemType::Sword, 2, 16, 32, false};
-    levelItems[1] = {ItemType::String, 3, 64, 32, false};
-    levelItems[2] = {ItemType::Key, 1, 96, 16, false};
-  }
+  levelItems[0] = {ItemType::Sword, 0, 32, 24, false};
+  levelItems[1] = {ItemType::String, 2, 64, 24, false};
+  levelItems[2] = {ItemType::Key, 3, 80, 24, false};
 }
 
 void collectItemsAtPlayerPosition()
@@ -264,7 +238,6 @@ void drawLevelItems()
 
 void restrictPlayerPosition()
 {
-  const LevelConfig &level = levels[current_level];
   if (playerx < level.left)
     playerx = level.left;
   if (playerx + PLAYER_WIDTH > level.right)
@@ -275,17 +248,16 @@ void restrictPlayerPosition()
     playery = level.bottom - PLAYER_HEIGHT;
 }
 
-void startLevel(uint8_t levelIndex)
+void startGame()
 {
-  current_level = levelIndex % LEVEL_COUNT;
   current_screen = 0;
-  playerx = levels[current_level].spawnX;
-  playery = levels[current_level].spawnY;
+  playerx = level.spawnX;
+  playery = level.spawnY;
   playerFacing = FacingDirection::Down;
   player.isHuman = true;
   player.is_armed = false;
   inventory = {false, false, false};
-  resetLevelItems();
+  resetItems();
   restrictPlayerPosition();
 }
 
@@ -303,7 +275,6 @@ bool tryReturnToMenu()
 // If no adjacent screen exists, the wall simply blocks movement.
 void checkScreenTransition(FacingDirection dir)
 {
-  const LevelConfig &level = levels[current_level];
   uint8_t col = current_screen % SCREEN_COLS;
   uint8_t row = current_screen / SCREEN_COLS;
 
@@ -342,7 +313,7 @@ void checkScreenTransition(FacingDirection dir)
 
 const uint8_t *tileForCurrentScreen()
 {
-  return screenTiles[current_level][current_screen];
+  return screenTiles[current_screen];
 }
 
 void drawGameplayBackground()
@@ -413,10 +384,6 @@ void drawGameplayHud()
     arduboy.setCursor(HUD_KEY_X, HUD_ITEMS_Y);
     arduboy.print("K");
   }
-
-  arduboy.setCursor(HUD_LEVEL_X, HUD_LEVEL_Y);
-  arduboy.print("L");
-  arduboy.print(current_level + 1);
 
   // Mini 2x2 screen map in the bottom-left corner (over cross sprite at 0,48)
   // Each cell is 3x3 px, step 5px: fits within x=2..9, y=49..56
@@ -607,7 +574,7 @@ void handleMenu()
     MenuOption option = selectedMenuOption();
     if (option == MenuOption::Play)
     {
-      startLevel(0);
+      startGame();
       current_mode = GameMode::Game;
     }
     else if (option == MenuOption::Help)
