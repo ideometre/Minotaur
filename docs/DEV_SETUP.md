@@ -7,9 +7,14 @@ Ce guide remet en place un environnement de travail simple pour coder et tester 
 Installer `arduino-cli`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-sudo mv bin/arduino-cli /usr/local/bin/
+curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=~/.local/bin sh
 arduino-cli version
+```
+
+Si la commande `arduino-cli` n'est pas trouvee apres installation, verifier que `~/.local/bin` est dans le PATH ou renseigner le chemin complet dans `settings.json`:
+
+```json
+"minotaur.arduinoCli": "/home/VOTRE_USER/.local/bin/arduino-cli"
 ```
 
 Donner les droits serie au user (une fois):
@@ -53,7 +58,7 @@ Avec l'Arduboy branche:
 2. Mettre a jour `minotaur.port` si besoin
 3. Lancer `Arduino: Build + Upload`
 
-## 4bis) Workflow recommande sous WSL (plus fiable)
+## 5) Workflow recommande sous WSL (plus fiable)
 
 Sous WSL, le Leonardo peut se deconnecter/reconnecter pendant le reset bootloader, ce qui peut casser l'upload Linux.
 
@@ -82,7 +87,7 @@ Si la tache `Arduino: Verify Port (Windows COM)` echoue avec un message du type 
 
 `C:\\Program Files\\Arduino IDE\\resources\\app\\lib\\backend\\resources\\arduino-cli.exe`
 
-## 5) Debug pratique sur Arduboy
+## 6) Debug pratique sur Arduboy
 
 Le debug pas-a-pas materiel n'est pas disponible nativement comme sur un MCU avec probe JTAG.
 
@@ -92,11 +97,11 @@ Workflow recommande:
 - moniteur serie via la tache `Arduino: Monitor`
 - debug gameplay/UX via tests rapides sur hardware (latence, collisions, rendu)
 
-## 6) Points utiles pour la suite
+## 7) Points utiles pour la suite
 
 - Sketch principal: [../src/src.ino](../src/src.ino)
 - Tache build: `Arduino: Build`
 - Tache upload: `Arduino: Upload`
 - Tache monitor: `Arduino: Monitor`
 
-Quand tu branches ton Arduboy, on peut faire ensemble un premier cycle complet `Build + Upload` puis ajouter une boucle de debug efficace (logs, toggles de debug, petits tests de scene).
+Pour un premier test complet, brancher l'Arduboy, lancer `Arduino: Flash Minotaur`, puis ouvrir le moniteur serie avec `Arduino: Monitor` pour verifier les logs.
