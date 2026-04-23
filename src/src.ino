@@ -144,6 +144,13 @@ constexpr int HUD_STRING_X = 32;
 constexpr int HUD_KEY_X = 48;
 constexpr int HUD_ITEMS_Y = 56;
 
+// Mini-map constants (2x2 rooms)
+constexpr int MINIMAP_X = 2;
+constexpr int MINIMAP_Y = 49;
+constexpr int MINIMAP_SIZE = 16;
+constexpr int MINIMAP_CELL_SIZE = 8;
+constexpr int MINIMAP_MARKER_SIZE = 2;
+
 // Splash screen configuration
 constexpr uint8_t SPLASH_COUNT = 7;
 const uint8_t *const splashScreens[SPLASH_COUNT] = {
@@ -385,24 +392,17 @@ void drawGameplayHud()
     arduboy.print("K");
   }
 
-  // Mini 2x2 screen map in the bottom-left corner (over cross sprite at 0,48)
-  // Each cell is 3x3 px, step 5px: fits within x=2..9, y=49..56
-  for (uint8_t r = 0; r < SCREEN_ROWS; r++)
-  {
-    for (uint8_t c = 0; c < SCREEN_COLS; c++)
-    {
-      int mx = 9 + c * 5;
-      int my = 49 + r * 5;
-      if ((r * SCREEN_COLS + c) == current_screen)
-      {
-        arduboy.fillRect(mx, my, 3, 3, WHITE);
-      }
-      else
-      {
-        arduboy.drawRect(mx, my, 3, 3, WHITE);
-      }
-    }
-  }
+  // Mini-map: solid black 16x16, split into 4 cells
+  arduboy.fillRect(MINIMAP_X, MINIMAP_Y, MINIMAP_SIZE, MINIMAP_SIZE, BLACK);
+  arduboy.drawRect(MINIMAP_X, MINIMAP_Y, MINIMAP_SIZE, MINIMAP_SIZE, WHITE);
+  arduboy.drawFastVLine(MINIMAP_X + MINIMAP_CELL_SIZE, MINIMAP_Y, MINIMAP_SIZE, WHITE);
+  arduboy.drawFastHLine(MINIMAP_X, MINIMAP_Y + MINIMAP_CELL_SIZE, MINIMAP_SIZE, WHITE);
+
+  uint8_t screenCol = current_screen % SCREEN_COLS;
+  uint8_t screenRow = current_screen / SCREEN_COLS;
+  int markerX = MINIMAP_X + screenCol * MINIMAP_CELL_SIZE + (MINIMAP_CELL_SIZE - MINIMAP_MARKER_SIZE) / 2;
+  int markerY = MINIMAP_Y + screenRow * MINIMAP_CELL_SIZE + (MINIMAP_CELL_SIZE - MINIMAP_MARKER_SIZE) / 2;
+  arduboy.fillRect(markerX, markerY, MINIMAP_MARKER_SIZE, MINIMAP_MARKER_SIZE, WHITE);
 }
 
 void handlePlayerMovement()
