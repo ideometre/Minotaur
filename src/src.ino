@@ -83,6 +83,7 @@ struct GameState
   FacingDirection facing;
   uint8_t currentScreen;
   bool winJinglePlayed;
+  bool loseJinglePlayed;
   bool minotaurAlive;
 };
 
@@ -98,6 +99,7 @@ GameState game = {
     FacingDirection::Down,
     0,    // currentScreen
     false,
+    false,
     true // minotaurAlive
 };
 
@@ -106,6 +108,26 @@ GameState game = {
     NOTE_E5, 90,
     NOTE_G5, 120,
     NOTE_C6, 240,
+    TONES_END};
+
+  // Short cheerful pickup sound
+  const uint16_t pickupSound[] PROGMEM = {
+    NOTE_D5, 100,
+    NOTE_G5, 100,
+    TONES_END};
+
+  // Epic kill sound: three rising notes
+  const uint16_t killSound[] PROGMEM = {
+    NOTE_E5, 80,
+    NOTE_G5, 80,
+    NOTE_C6, 200,
+    TONES_END};
+
+  // Dark lose sound: descending notes
+  const uint16_t loseSound[] PROGMEM = {
+    NOTE_A4, 150,
+    NOTE_G4, 150,
+    NOTE_E4, 200,
     TONES_END};
 
 // Single playfield config (one bounded area, shared by all screens)
@@ -453,6 +475,7 @@ void collectItemsAtPlayerPosition()
                           levelItems[i].x, levelItems[i].y, PLAYER_WIDTH, PLAYER_HEIGHT))
     {
       levelItems[i].collected = true;
+      sound.tones(pickupSound);
       setInventoryItem(levelItems[i].type, true);
       if (levelItems[i].type == ItemType::Sword)
       {
@@ -496,6 +519,7 @@ void startGame()
   game.player.isHuman = true;
   game.player.isArmed = false;
   game.winJinglePlayed = false;
+  game.loseJinglePlayed = false;
   game.minotaurAlive = true;
   game.inventory = {false, false, false};
   resetItems();
@@ -536,6 +560,7 @@ void handleMinotaurCollision()
   if (game.player.isArmed)
   {
     game.minotaurAlive = false;
+    sound.tones(killSound);
   }
   else
   {
@@ -986,6 +1011,12 @@ void handleLoseScreen()
   if (tryReturnToMenu())
   {
     return;
+  }
+
+  if (!game.loseJinglePlayed)
+  {
+    sound.tones(loseSound);
+    game.loseJinglePlayed = true;
   }
 
   arduboy.setCursor(24, 28);
